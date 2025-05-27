@@ -1,26 +1,38 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import Layout from "./components/Layout/Layout"
+import Dashboard from "./pages/Dashboard/Dashboard"
+import Capa from "./pages/Capa/Capa"
+import EstrategiaDocumentacao from "./pages/EstrategiaDocumentacao/EstrategiaDocumentacao"
+import LinhaTempo from "./pages/LinhaTempo/LinhaTempo"
+import EstrategiaOnline from "./pages/EstrategiaOnline/EstrategiaOnline"
+import VisaoGeral from "./pages/VisaoGeral/VisaoGeral"
+import Alcance from "./pages/Alcance/Alcance"
+import Visualizacoes from "./pages/Visualizacoes/Visualizacoes"
+import TrafegoEngajamento from "./pages/TrafegoEngajamento/TrafegoEngajamento"
+import CriativosTikTok from "./pages/CriativosTikTok/CriativosTikTok"
+import CriativosMetaAds from "./pages/CriativosMetaAds/CriativosMetaAds"
+import "./App.css"
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+    <Router>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/capa" element={<Capa />} />
+          <Route path="/estrategia-documentacao" element={<EstrategiaDocumentacao />} />
+          <Route path="/linha-tempo" element={<LinhaTempo />} />
+          <Route path="/estrategia-online" element={<EstrategiaOnline />} />
+          <Route path="/visao-geral" element={<VisaoGeral />} />
+          <Route path="/alcance" element={<Alcance />} />
+          <Route path="/visualizacoes" element={<Visualizacoes />} />
+          <Route path="/trafego-engajamento" element={<TrafegoEngajamento />} />
+          <Route path="/criativos-tiktok" element={<CriativosTikTok />} />
+          <Route path="/criativos-meta-ads" element={<CriativosMetaAds />} />
+        </Routes>
+      </Layout>
+    </Router>
+  )
 }
 
-export default App;
+export default App
