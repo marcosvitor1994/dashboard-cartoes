@@ -1,4 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { GoogleOAuthProvider } from "@react-oauth/google"
+import { AuthProvider } from "./contexts/AuthContext"
+import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute"
 import Layout from "./components/Layout/Layout"
 import Dashboard from "./pages/Dashboard/Dashboard"
 import Capa from "./pages/Capa/Capa"
@@ -13,25 +16,34 @@ import CriativosTikTok from "./pages/CriativosTikTok/CriativosTikTok"
 import CriativosMetaAds from "./pages/CriativosMetaAds/CriativosMetaAds"
 import "./App.css"
 
+// Substitua pelo seu Google Client ID
+const GOOGLE_CLIENT_ID = "817600868083-2nmpbvf4emg6a21hrl4esjjo5g3ohepv.apps.googleusercontent.com"
+
 function App() {
   return (
-    <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/capa" element={<Capa />} />
-          <Route path="/estrategia-documentacao" element={<EstrategiaDocumentacao />} />
-          <Route path="/linha-tempo" element={<LinhaTempo />} />
-          <Route path="/estrategia-online" element={<EstrategiaOnline />} />
-          <Route path="/visao-geral" element={<VisaoGeral />} />
-          <Route path="/alcance" element={<Alcance />} />
-          <Route path="/visualizacoes" element={<Visualizacoes />} />
-          <Route path="/trafego-engajamento" element={<TrafegoEngajamento />} />
-          <Route path="/criativos-tiktok" element={<CriativosTikTok />} />
-          <Route path="/criativos-meta-ads" element={<CriativosMetaAds />} />
-        </Routes>
-      </Layout>
-    </Router>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <Router>
+          <ProtectedRoute>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/capa" element={<Capa />} />
+                <Route path="/estrategia-documentacao" element={<EstrategiaDocumentacao />} />
+                <Route path="/linha-tempo" element={<LinhaTempo />} />
+                <Route path="/estrategia-online" element={<EstrategiaOnline />} />
+                <Route path="/visao-geral" element={<VisaoGeral />} />
+                <Route path="/alcance" element={<Alcance />} />
+                <Route path="/visualizacoes" element={<Visualizacoes />} />
+                <Route path="/trafego-engajamento" element={<TrafegoEngajamento />} />
+                <Route path="/criativos-tiktok" element={<CriativosTikTok />} />
+                <Route path="/criativos-meta-ads" element={<CriativosMetaAds />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        </Router>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   )
 }
 

@@ -1,5 +1,6 @@
 import type React from "react"
 import Sidebar from "../Sidebar/Sidebar"
+import Header from "../Header/Header"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -24,7 +25,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main Content */}
       <main className="flex-1 ml-16 transition-all duration-300 relative z-10">
-        <div className="p-6">{children}</div>
+        <div className="p-6">
+          <Header />
+          {children}
+        </div>
       </main>
     </div>
   )
