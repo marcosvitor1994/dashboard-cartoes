@@ -1,16 +1,13 @@
 import type React from "react"
 import { useCCBBData } from "../../services/api"
 import { BarChart3, TrendingUp, Users, Eye } from "lucide-react"
+import Loading from "../../components/Loading/Loading"
 
 const Dashboard: React.FC = () => {
   const { data, loading, error } = useCCBBData()
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
+    return <Loading message="Carregando dados do dashboard..." />
   }
 
   if (error) {

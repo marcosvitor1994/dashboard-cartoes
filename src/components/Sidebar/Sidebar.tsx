@@ -3,7 +3,21 @@
 import type React from "react"
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Home, FileText, Clock, Globe, Eye, TrendingUp, Video, Share2, BarChart3, Users } from "lucide-react"
+import {
+  Home,
+  FileText,
+  Clock,
+  Globe,
+  Eye,
+  TrendingUp,
+  Video,
+  Share2,
+  BarChart3,
+  Users,
+  LogOut,
+  User,
+} from "lucide-react"
+import { useAuth } from "../../contexts/AuthContext"
 
 interface MenuItem {
   id: string
@@ -77,7 +91,17 @@ const menuItems: MenuItem[] = [
 
 const Sidebar: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const location = useLocation()
+  const { user, logout } = useAuth()
+
+  const handleImageError = () => {
+    setImageError(true)
+  }
+
+  const handleImageLoad = () => {
+    setImageError(false)
+  }
 
   return (
     <div
@@ -91,14 +115,51 @@ const Sidebar: React.FC = () => {
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+              <img
+                    src="/images/nacional.gif"
+                    alt='Gif Nacional'
+                    className="w-full h-full object-cover"
+                    crossOrigin="anonymous"
+                  />
+              
             </div>
             {isExpanded && (
               <span className="ml-3 font-semibold text-gray-800 whitespace-nowrap">Dashboard Cartões</span>
             )}
           </div>
         </div>
+
+        {/* User Info */}
+        {user && (
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center">
+              {/* Avatar com fallback */}
+              <div className="w-8 h-8 rounded-full border-2 border-gray-200 flex-shrink-0 overflow-hidden bg-gray-100">
+                {user.picture && !imageError ? (
+                  <img
+                    src={user.picture || "/placeholder.svg"}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                    onError={handleImageError}
+                    onLoad={handleImageLoad}
+                    crossOrigin="anonymous"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-blue-100">
+                    <User className="w-4 h-4 text-blue-600" />
+                  </div>
+                )}
+              </div>
+              {isExpanded && (
+                <div className="ml-3 min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Menu Items */}
         <nav className="flex-1 py-4">
@@ -124,6 +185,18 @@ const Sidebar: React.FC = () => {
             })}
           </ul>
         </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={logout}
+            className="flex items-center w-full px-4 py-3 text-sm text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors duration-200 rounded-lg"
+            title="Sair"
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {isExpanded && <span className="ml-3 whitespace-nowrap">Sair</span>}
+          </button>
+        </div>
       </div>
     </div>
   )

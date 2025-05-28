@@ -11,6 +11,19 @@ interface User {
   sub: string
 }
 
+interface GoogleJwtPayload {
+  email: string
+  name: string
+  picture: string
+  sub: string
+  given_name?: string
+  family_name?: string
+  iss: string
+  aud: string
+  exp: number
+  iat: number
+}
+
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
@@ -25,8 +38,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Whitelist de e-mails autorizados
 const AUTHORIZED_EMAILS = [
   "marcosvitor1994@gmail.com",
-  "vitor.checkmedia@gmail.com",
-  // Adicione mais e-mails conforme necessário
+  "vitor.checkmedia@gmail.com", // Adicionando seu e-mail para teste
 ]
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -50,7 +62,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = (credential: string) => {
     try {
-      const decoded: any = jwtDecode(credential)
+      const decoded = jwtDecode<GoogleJwtPayload>(credential)
+
+      console.log("Token decodificado:", decoded) // Para debug
 
       const userData: User = {
         email: decoded.email,
@@ -58,6 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         picture: decoded.picture,
         sub: decoded.sub,
       }
+
+      console.log("Dados do usuário:", userData) // Para debug
 
       setUser(userData)
       localStorage.setItem("user", JSON.stringify(userData))
