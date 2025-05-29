@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const AUTHORIZED_EMAILS = [
   "marcosvitor1994@gmail.com",
   "vitor.checkmedia@gmail.com", // Adicionando seu e-mail para teste
+  "luiz.coelho@naccom.com.br"
 ]
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
