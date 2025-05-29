@@ -44,6 +44,17 @@ export const fetchShareCCBBData = async () => {
   }
 }
 
+// Função para buscar dados do Meta CCBB
+export const fetchMetaCCBBData = async () => {
+  try {
+    const response = await api.get("/ccbbMeta")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do Meta CCBB:", error)
+    throw error
+  }
+}
+
 // Hook personalizado para usar os dados da API CCBB
 export const useCCBBData = () => {
   const [data, setData] = React.useState<any>(null)
@@ -80,6 +91,32 @@ export const useShareCCBBData = () => {
     try {
       setLoading(true)
       const result = await fetchShareCCBBData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados da API Meta CCBB
+export const useMetaCCBBData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchMetaCCBBData()
       setData(result)
       setError(null)
     } catch (err) {

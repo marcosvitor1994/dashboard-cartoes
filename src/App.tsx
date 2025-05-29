@@ -1,9 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { GoogleOAuthProvider } from "@react-oauth/google"
 import { AuthProvider } from "./contexts/AuthContext"
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute"
 import Layout from "./components/Layout/Layout"
-import Dashboard from "./pages/Dashboard/Dashboard"
 import Capa from "./pages/Capa/Capa"
 import EstrategiaDocumentacao from "./pages/EstrategiaDocumentacao/EstrategiaDocumentacao"
 import LinhaTempo from "./pages/LinhaTempo/LinhaTempo"
@@ -17,7 +16,7 @@ import CriativosMetaAds from "./pages/CriativosMetaAds/CriativosMetaAds"
 import "./App.css"
 
 // Substitua pelo seu Google Client ID
-const GOOGLE_CLIENT_ID = "817600868083-2nmpbvf4emg6a21hrl4esjjo5g3ohepv.apps.googleusercontent.com"
+const GOOGLE_CLIENT_ID = "SEU_GOOGLE_CLIENT_ID_AQUI"
 
 function App() {
   return (
@@ -27,7 +26,8 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
+                {/* Redirecionar para Capa ao invés de Dashboard */}
+                <Route path="/" element={<Navigate to="/capa" replace />} />
                 <Route path="/capa" element={<Capa />} />
                 <Route path="/estrategia-documentacao" element={<EstrategiaDocumentacao />} />
                 <Route path="/linha-tempo" element={<LinhaTempo />} />
