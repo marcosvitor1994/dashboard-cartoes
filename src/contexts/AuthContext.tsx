@@ -41,6 +41,7 @@ const AUTHORIZED_EMAILS = [
   "vitor.checkmedia@gmail.com", // Adicionando seu e-mail para teste
   "luiz.coelho@naccom.com.br",
   "marcos.santos@naccom.com.br",
+  "luiz02coelho@gmail.com",
 ]
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
