@@ -35,14 +35,38 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Whitelist de e-mails autorizados
+// Emails específicos autorizados
 const AUTHORIZED_EMAILS = [
   "marcosvitor1994@gmail.com",
-  "vitor.checkmedia@gmail.com", // Adicionando seu e-mail para teste
+  "vitor.checkmedia@gmail.com",
   "luiz.coelho@naccom.com.br",
   "marcos.santos@naccom.com.br",
   "luiz02coelho@gmail.com",
 ]
+
+// Domínios autorizados (permite qualquer email desses domínios)
+// Funciona para:
+// - Google Workspace corporativo (G Suite)
+// - Contas Google pessoais criadas com email corporativo
+// - Qualquer conta Google que use esses domínios
+const AUTHORIZED_DOMAINS = [
+  "naccom.com.br",
+  // Adicione aqui outros domínios corporativos que devem ter acesso
+  // "minhaempresa.com",
+  // "outraempresa.com.br",
+]
+
+// Função para verificar se o email está autorizado
+const isEmailAuthorized = (email: string): boolean => {
+  // Verifica se o email está na lista específica
+  if (AUTHORIZED_EMAILS.includes(email)) {
+    return true
+  }
+  
+  // Verifica se o domínio do email está autorizado
+  const domain = email.split('@')[1]
+  return AUTHORIZED_DOMAINS.includes(domain)
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
@@ -93,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const isAuthenticated = !!user
-  const isAuthorized = user ? AUTHORIZED_EMAILS.includes(user.email) : false
+  const isAuthorized = user ? isEmailAuthorized(user.email) : false
 
   return (
     <AuthContext.Provider

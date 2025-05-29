@@ -16,7 +16,7 @@ import CriativosMetaAds from "./pages/CriativosMetaAds/CriativosMetaAds"
 import "./App.css"
 
 // Substitua pelo seu Google Client ID
-const GOOGLE_CLIENT_ID = "SEU_GOOGLE_CLIENT_ID_AQUI"
+const GOOGLE_CLIENT_ID = "817600868083-2nmpbvf4emg6a21hrl4esjjo5g3ohepv.apps.googleusercontent.com"
 
 function App() {
   return (
