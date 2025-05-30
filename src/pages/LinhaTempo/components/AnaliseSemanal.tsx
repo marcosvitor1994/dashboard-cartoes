@@ -14,6 +14,7 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  ArrowLeft,
 } from "lucide-react"
 import PDFDownloadButton from "../../../components/PDFDownloadButton/PDFDownloadButton"
 
@@ -82,53 +83,54 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
   // Função para obter dados baseado no período selecionado
   const getFilteredDataByPeriod = (isCurrentPeriod: boolean): DataPoint[] => {
     if (dateRange.start && dateRange.end) {
-      const startDate = new Date(dateRange.start)
-      const endDate = new Date(dateRange.end)
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
 
       // Calcular período anterior com a mesma duração
-      const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-      const previousEndDate = new Date(startDate)
-      previousEndDate.setDate(startDate.getDate() - 1)
-      const previousStartDate = new Date(previousEndDate)
-      previousStartDate.setDate(previousEndDate.getDate() - periodDuration + 1)
+      const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const previousStartDate = new Date(startDate);
+      // Ajustar para o início do período anterior sem subtrair 1 dia manualmente
+      previousStartDate.setDate(startDate.getDate() - periodDuration);
+      const previousEndDate = new Date(previousStartDate);
+      previousEndDate.setDate(previousStartDate.getDate() + periodDuration - 1);
 
-      let targetStartDate: Date
-      let targetEndDate: Date
+      let targetStartDate: Date;
+      let targetEndDate: Date;
 
       if (isCurrentPeriod) {
         // Período atual
-        targetStartDate = startDate
-        targetEndDate = endDate
+        targetStartDate = startDate;
+        targetEndDate = endDate;
       } else {
         // Período anterior
-        targetStartDate = previousStartDate
-        targetEndDate = previousEndDate
+        targetStartDate = previousStartDate;
+        targetEndDate = previousEndDate;
       }
 
       return processedData.filter((item) => {
-        const itemDate = new Date(item.date)
-        const isInDateRange = itemDate >= targetStartDate && itemDate <= targetEndDate
-        const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform)
-        return isInDateRange && isVehicleSelected
-      })
+        const itemDate = new Date(item.date);
+        const isInDateRange = itemDate >= targetStartDate && itemDate <= targetEndDate;
+        const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform);
+        return isInDateRange && isVehicleSelected;
+      });
     } else {
-      // Lógica original para últimos 7 dias
-      const today = new Date()
-      const endDate = new Date(today)
-      const daysBack = isCurrentPeriod ? 1 : 8
-      endDate.setDate(today.getDate() - daysBack)
+      // Lógica para últimos 7 dias
+      const today = new Date();
+      const endDate = new Date(today);
+      const daysBack = isCurrentPeriod ? 0 : 7;
+      endDate.setDate(today.getDate() - daysBack);
 
-      const startDate = new Date(endDate)
-      startDate.setDate(endDate.getDate() - 6)
+      const startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - 6);
 
       return processedData.filter((item) => {
-        const itemDate = new Date(item.date)
-        const isInDateRange = itemDate >= startDate && itemDate <= endDate
-        const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform)
-        return isInDateRange && isVehicleSelected
-      })
+        const itemDate = new Date(item.date);
+        const isInDateRange = itemDate >= startDate && itemDate <= endDate;
+        const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform);
+        return isInDateRange && isVehicleSelected;
+      });
     }
-  }
+  };
 
   // Calcular métricas semanais com tratamento de valores zerados
   const calculateWeeklyMetrics = (data: DataPoint[]): WeeklyMetrics => {
@@ -259,34 +261,60 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
       }
     }
 
-    // Criar dados para o gráfico
-    const allDays = new Set([...Object.keys(currentGrouped), ...Object.keys(previousGrouped)])
-    const sortedDays = Array.from(allDays).sort((a, b) => {
-      const [dayA, monthA] = a.split("/").map(Number)
-      const [dayB, monthB] = b.split("/").map(Number)
-      return new Date(2024, monthA - 1, dayA).getTime() - new Date(2024, monthB - 1, dayB).getTime()
+    // Criar dados para o gráfico (apenas dias com dados)
+    const currentData: Array<{ x: string; y: number }> = []
+    const previousData: Array<{ x: string; y: number }> = []
+
+    // Processar dados do período atual
+    const currentDays = Object.keys(currentGrouped).sort((a, b) => {
+      const [dayA, monthA] = a.split("/").map(Number);
+      const [dayB, monthB] = b.split("/").map(Number);
+      // Ajustar o mês para o índice baseado em 0
+      const dateA = new Date(new Date().getFullYear(), monthA - 1, dayA);
+      const dateB = new Date(new Date().getFullYear(), monthB - 1, dayB);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    currentDays.forEach((day) => {
+      const value = getDayValue(currentGrouped[day], selectedMetric)
+      if (value > 0) {
+        currentData.push({ x: day, y: value })
+      }
     })
 
-    const currentData = sortedDays.map((day) => ({
-      x: day,
-      y: getDayValue(currentGrouped[day], selectedMetric) || 0,
-    }))
+    // Processar dados do período anterior
+    const previousDays = Object.keys(previousGrouped).sort((a, b) => {
+      const [dayA, monthA] = a.split("/").map(Number);
+      const [dayB, monthB] = b.split("/").map(Number);
+      // Ajustar o mês para o índice baseado em 0
+      const dateA = new Date(new Date().getFullYear(), monthA - 1, dayA);
+      const dateB = new Date(new Date().getFullYear(), monthB - 1, dayB);
+      return dateA.getTime() - dateB.getTime();
+    });
+    previousDays.forEach((day) => {
+      const value = getDayValue(previousGrouped[day], selectedMetric)
+      if (value > 0) {
+        previousData.push({ x: day, y: value })
+      }
+    })
 
-    const previousData = sortedDays.map((day) => ({
-      x: day,
-      y: getDayValue(previousGrouped[day], selectedMetric) || 0,
-    }))
+    const result: ChartData[] = []
 
-    return [
-      {
+    if (currentData.length > 0) {
+      result.push({
         id: "Período Atual",
         data: currentData,
-      },
-      {
+      })
+    }
+
+    if (previousData.length > 0) {
+      result.push({
         id: "Período Anterior",
         data: previousData,
-      },
-    ]
+      })
+    }
+
+    return result
   }, [selectedMetric, processedData, selectedVehicles, dateRange])
 
   // Função para formatar valor monetário
@@ -340,13 +368,14 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
     <div ref={contentRef} className="space-y-4 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 text-enhanced">Análise Semanal</h1>
+        <h1 className="text-3xl font-bold text-gray-900 text-enhanced">Análise de Período</h1>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2 text-sm text-gray-600 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-lg">
             <TrendingUp className="w-4 h-4" />
-            <span>Comparativo Semanal</span>
+            <span>Comparativo de Períodos</span>
           </div>
-          <PDFDownloadButton contentRef={contentRef} fileName="analise-semanal" />
+          
+          <PDFDownloadButton contentRef={contentRef} fileName="analise-de-periodo" />
         </div>
       </div>
 
@@ -405,7 +434,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
         </div>
       </div>
 
-      {/* Cards da Análise Semanal */}
+      {/* Cards da Análise de Período */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Card Investimento */}
         <div className="card-overlay rounded-lg shadow-lg p-4">
@@ -415,7 +444,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             </div>
             <div className="flex items-center space-x-1">
               {renderComparisonIcon(weeklyComparison.comparison.investment)}
-              <span className={`text-xs font-medium ${getComparisonColor(weeklyComparison.comparison.investment)}`}>
+              <span className={`text-sm font-semibold ${getComparisonColor(weeklyComparison.comparison.investment)}`}>
                 {Math.abs(weeklyComparison.comparison.investment).toFixed(1)}%
               </span>
             </div>
@@ -434,7 +463,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             </div>
             <div className="flex items-center space-x-1">
               {renderComparisonIcon(weeklyComparison.comparison.impressions)}
-              <span className={`text-xs font-medium ${getComparisonColor(weeklyComparison.comparison.impressions)}`}>
+              <span className={`text-sm font-semibold ${getComparisonColor(weeklyComparison.comparison.impressions)}`}>
                 {Math.abs(weeklyComparison.comparison.impressions).toFixed(1)}%
               </span>
             </div>
@@ -456,7 +485,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             </div>
             <div className="flex items-center space-x-1">
               {renderComparisonIcon(weeklyComparison.comparison.clicks)}
-              <span className={`text-xs font-medium ${getComparisonColor(weeklyComparison.comparison.clicks)}`}>
+              <span className={`text-sm font-semibold ${getComparisonColor(weeklyComparison.comparison.clicks)}`}>
                 {Math.abs(weeklyComparison.comparison.clicks).toFixed(1)}%
               </span>
             </div>
@@ -478,7 +507,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             </div>
             <div className="flex items-center space-x-1">
               {renderComparisonIcon(weeklyComparison.comparison.views)}
-              <span className={`text-xs font-medium ${getComparisonColor(weeklyComparison.comparison.views)}`}>
+              <span className={`text-sm font-semibold ${getComparisonColor(weeklyComparison.comparison.views)}`}>
                 {Math.abs(weeklyComparison.comparison.views).toFixed(1)}%
               </span>
             </div>
@@ -527,10 +556,10 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
         {/* Gráfico */}
         <div className="lg:col-span-3 card-overlay rounded-lg shadow-lg p-4 flex flex-col">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Comparativo Semanal - {selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}
+            Comparativo de Períodos - {selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}
           </h3>
           <div className="flex-1" style={{ minHeight: "400px" }}>
-            {weeklyChartData[0]?.data.length > 0 ? (
+            {weeklyChartData.length > 0 && weeklyChartData.some(series => series.data.length > 0) ? (
               <ResponsiveLine
                 data={weeklyChartData}
                 margin={{ top: 30, right: 30, bottom: 80, left: 80 }}
@@ -546,6 +575,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                   legend: "Dia/Mês",
                   legendOffset: 60,
                   legendPosition: "middle",
+                  format: (value) => value, // Garantir que o valor seja exibido como está (DD/MM)
                 }}
                 axisLeft={{
                   tickSize: 5,
@@ -570,7 +600,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                 pointBorderColor={{ from: "serieColor" }}
                 pointLabelYOffset={-12}
                 useMesh={true}
-                colors={["#3b82f6", "#fbbf24"]}
+                colors={["#fbbf24", "#3b82f6"]}
                 lineWidth={3}
                 enableArea={false}
                 enableGridX={false}
@@ -642,44 +672,87 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
-                  <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum dado disponível para o período selecionado</p>
+                  <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>Não há dados disponíveis para o período selecionado</p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Painel Lateral - Seletor de Métricas */}
-        <div className="card-overlay rounded-lg shadow-lg p-4 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Métricas
-          </h3>
-          <div className="space-y-2 flex-1">
+        {/* Painel de Controle da Métrica */}
+        <div className="card-overlay rounded-lg shadow-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Selecionar Métrica</h3>
+          <div className="space-y-2">
             {[
               { key: "impressions", label: "Impressões", icon: TrendingUp },
               { key: "clicks", label: "Cliques", icon: MousePointer },
-              { key: "views", label: "Views", icon: Eye },
+              { key: "views", label: "Visualizações", icon: Eye },
               { key: "cpm", label: "CPM", icon: DollarSign },
               { key: "cpc", label: "CPC", icon: DollarSign },
               { key: "cpv", label: "CPV", icon: DollarSign },
-              { key: "ctr", label: "CTR", icon: MousePointer },
-              { key: "vtr", label: "VTR", icon: Eye },
+              { key: "ctr", label: "CTR", icon: BarChart3 },
+              { key: "vtr", label: "VTR", icon: BarChart3 },
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
-                onClick={() => setSelectedMetric(key as any)}
-                className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors duration-200 ${
+                onClick={() => setSelectedMetric(key as typeof selectedMetric)}
+                className={`w-full p-3 rounded-lg text-left transition-colors duration-200 flex items-center space-x-3 ${
                   selectedMetric === key
-                    ? "bg-blue-100 text-blue-800 border border-blue-300"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                    ? "bg-blue-50 border-blue-200 text-blue-700 border-2"
+                    : "bg-gray-50 border-gray-200 text-gray-600 border hover:bg-gray-100"
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{label}</span>
+                <span className="font-medium">{label}</span>
               </button>
             ))}
+          </div>
+
+          {/* Resumo da Métrica Selecionada */}
+          <div className="mt-6 p-3 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Resumo da Métrica</h4>
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Atual:</span>
+                <span className="font-medium">
+                  {selectedMetric === "impressions" &&
+                    weeklyComparison.current.impressions.toLocaleString("pt-BR")}
+                  {selectedMetric === "clicks" && weeklyComparison.current.clicks.toLocaleString("pt-BR")}
+                  {selectedMetric === "views" && weeklyComparison.current.views.toLocaleString("pt-BR")}
+                  {selectedMetric === "cpm" && formatCurrency(weeklyComparison.current.cpm)}
+                  {selectedMetric === "cpc" && formatCurrency(weeklyComparison.current.cpc)}
+                  {selectedMetric === "cpv" && formatCurrency(weeklyComparison.current.cpv)}
+                  {selectedMetric === "ctr" && `${weeklyComparison.current.ctr.toFixed(2)}%`}
+                  {selectedMetric === "vtr" && `${weeklyComparison.current.vtr.toFixed(2)}%`}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Anterior:</span>
+                <span className="font-medium">
+                  {selectedMetric === "impressions" &&
+                    weeklyComparison.previous.impressions.toLocaleString("pt-BR")}
+                  {selectedMetric === "clicks" && weeklyComparison.previous.clicks.toLocaleString("pt-BR")}
+                  {selectedMetric === "views" && weeklyComparison.previous.views.toLocaleString("pt-BR")}
+                  {selectedMetric === "cpm" && formatCurrency(weeklyComparison.previous.cpm)}
+                  {selectedMetric === "cpc" && formatCurrency(weeklyComparison.previous.cpc)}
+                  {selectedMetric === "cpv" && formatCurrency(weeklyComparison.previous.cpv)}
+                  {selectedMetric === "ctr" && `${weeklyComparison.previous.ctr.toFixed(2)}%`}
+                  {selectedMetric === "vtr" && `${weeklyComparison.previous.vtr.toFixed(2)}%`}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                <span className="text-gray-600">Variação:</span>
+                <span
+                  className={`font-semibold ${getComparisonColor(
+                    weeklyComparison.comparison[selectedMetric]
+                  )}`}
+                >
+                  {weeklyComparison.comparison[selectedMetric] > 0 ? "+" : ""}
+                  {weeklyComparison.comparison[selectedMetric].toFixed(1)}%
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
