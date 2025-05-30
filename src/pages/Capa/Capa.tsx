@@ -131,16 +131,16 @@ const Capa: React.FC = () => {
             <div className="flex items-start space-x-3">
               <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
               <div>
-                <p className="font-semibold text-gray-900 text-sm">Códigos:</p>
-                <p className="text-gray-700 text-sm">A2025/00004 PAC</p>
-                <p className="text-gray-700 text-sm">P2025/00106</p>
+                <p className="font-semibold text-gray-900 text-sm">Códigos</p>
+                <p className="text-gray-700 text-sm">Nº Ação: A2025/00002</p>
+                <p className="text-gray-700 text-sm">Nº Projeto: P2024/00854</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <User className="w-3 h-3 text-purple-600 mt-1" />
               <div>
                 <p className="font-semibold text-gray-900 text-sm">Assessora:</p>
-                <p className="text-gray-700 text-sm">Lenícia</p>
+                <p className="text-gray-700 text-sm">Isis Azevedo</p>
               </div>
             </div>
           </div>
@@ -157,7 +157,8 @@ const Capa: React.FC = () => {
               <Users className="w-3 h-3 text-orange-600 mt-1" />
               <div>
                 <p className="font-semibold text-gray-900 text-sm">Público Alvo:</p>
-                <p className="text-gray-700 text-sm">AS - 18 a 40 anos</p>
+                <p className="text-gray-700 text-sm">AS - 18 +</p>
+                <p className="text-gray-700 text-sm">AS - 18 a 40 anos + Interesses</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
