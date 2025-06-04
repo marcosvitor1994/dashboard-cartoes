@@ -255,19 +255,12 @@ const LinhaTempo: React.FC = () => {
   // Se estiver no modo análise semanal, renderizar o componente separado
   if (isWeeklyAnalysis) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setIsWeeklyAnalysis(false)}
-            className="px-4 py-2 border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200 text-sm font-medium"
-          >
-            ← Voltar para Linha do Tempo
-          </button>
-        </div>
+      <div className="space-y-4">        
         <AnaliseSemanal
           processedData={processedData}
           availableVehicles={availableVehicles}
           platformColors={platformColors}
+          onBack={() => setIsWeeklyAnalysis(false)}
         />
       </div>
     )
@@ -396,7 +389,7 @@ const LinhaTempo: React.FC = () => {
             {chartData[0]?.data.length > 0 ? (
               <ResponsiveLine
                 data={chartData}
-                margin={{ top: 30, right: 30, bottom: 80, left: 80 }}
+                margin={{ top: 30, right: 30, bottom: 80, left: 100 }}
                 xScale={{ type: "point" }}
                 yScale={{ type: "linear", min: "auto", max: "auto" }}
                 yFormat=" >-.0f"
@@ -415,7 +408,7 @@ const LinhaTempo: React.FC = () => {
                   tickPadding: 10,
                   tickRotation: 0,
                   legend: "Impressões",
-                  legendOffset: -65,
+                  legendOffset: -85,
                   legendPosition: "middle",
                   format: (value) => value.toLocaleString("pt-BR"),
                 }}

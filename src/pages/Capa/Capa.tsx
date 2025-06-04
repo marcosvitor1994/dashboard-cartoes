@@ -187,7 +187,7 @@ const Capa: React.FC = () => {
             <Link
               key={index}
               to={card.path}
-              className="group card-overlay rounded-xl shadow-lg p-4 hover:shadow-xl transition-all duration-300 hover:scale-105 h-fit"
+              className="group card-overlay rounded-xl shadow-lg p-4 hover:shadow-xl transition-all duration-300 h-fit"
             >
               <div className="flex items-start space-x-3">
                 <div

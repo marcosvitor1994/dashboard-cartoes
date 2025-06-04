@@ -70,9 +70,11 @@ interface AnaliseSemanalProps {
   processedData: DataPoint[]
   availableVehicles: string[]
   platformColors: Record<string, string>
+  onBack: () => void  // ADICIONE ESTA LINHA
+
 }
 
-const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availableVehicles, platformColors }) => {
+const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availableVehicles, platformColors, onBack }) => {
   const contentRef = useRef<HTMLDivElement>(null)
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
@@ -140,7 +142,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
     }, 0)
 
     const totalImpressions = data.reduce((sum, item) => sum + (item.impressions || 0), 0)
-    const totalClicks = data.reduce((sum, item) => sum + (item.clicks || item.linkClicks || 0), 0)
+    const totalClicks = data.reduce((sum, item) => sum + (item.linkClicks || 0), 0)
     const totalViews = data.reduce((sum, item) => sum + (item.visualizacoes || 0), 0)
 
     const cpm = totalImpressions > 0 ? (totalInvestment / totalImpressions) * 1000 : 0
@@ -261,19 +263,26 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
       }
     }
 
-    // Criar dados para o gráfico (apenas dias com dados)
-    const currentData: Array<{ x: string; y: number }> = []
-    const previousData: Array<{ x: string; y: number }> = []
-
     // Processar dados do período atual
     const currentDays = Object.keys(currentGrouped).sort((a, b) => {
-      const [dayA, monthA] = a.split("/").map(Number);
-      const [dayB, monthB] = b.split("/").map(Number);
-      // Ajustar o mês para o índice baseado em 0
-      const dateA = new Date(new Date().getFullYear(), monthA - 1, dayA);
-      const dateB = new Date(new Date().getFullYear(), monthB - 1, dayB);
-      return dateA.getTime() - dateB.getTime();
-    });
+      const [dayA, monthA] = a.split("/").map(Number)
+      const [dayB, monthB] = b.split("/").map(Number)
+      const dateA = new Date(new Date().getFullYear(), monthA - 1, dayA)
+      const dateB = new Date(new Date().getFullYear(), monthB - 1, dayB)
+      return dateA.getTime() - dateB.getTime()
+    })
+
+    // Processar dados do período anterior
+    const previousDays = Object.keys(previousGrouped).sort((a, b) => {
+      const [dayA, monthA] = a.split("/").map(Number)
+      const [dayB, monthB] = b.split("/").map(Number)
+      const dateA = new Date(new Date().getFullYear(), monthA - 1, dayA)
+      const dateB = new Date(new Date().getFullYear(), monthB - 1, dayB)
+      return dateA.getTime() - dateB.getTime()
+    })
+
+    const currentData: Array<{ x: string; y: number }> = []
+    const previousData: Array<{ x: string; y: number }> = []
 
     currentDays.forEach((day) => {
       const value = getDayValue(currentGrouped[day], selectedMetric)
@@ -282,15 +291,6 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
       }
     })
 
-    // Processar dados do período anterior
-    const previousDays = Object.keys(previousGrouped).sort((a, b) => {
-      const [dayA, monthA] = a.split("/").map(Number);
-      const [dayB, monthB] = b.split("/").map(Number);
-      // Ajustar o mês para o índice baseado em 0
-      const dateA = new Date(new Date().getFullYear(), monthA - 1, dayA);
-      const dateB = new Date(new Date().getFullYear(), monthB - 1, dayB);
-      return dateA.getTime() - dateB.getTime();
-    });
     previousDays.forEach((day) => {
       const value = getDayValue(previousGrouped[day], selectedMetric)
       if (value > 0) {
@@ -300,17 +300,17 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
 
     const result: ChartData[] = []
 
-    if (currentData.length > 0) {
-      result.push({
-        id: "Período Atual",
-        data: currentData,
-      })
-    }
-
     if (previousData.length > 0) {
       result.push({
         id: "Período Anterior",
         data: previousData,
+      })
+    }
+
+    if (currentData.length > 0) {
+      result.push({
+        id: "Período Atual",
+        data: currentData,
       })
     }
 
@@ -374,8 +374,14 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             <TrendingUp className="w-4 h-4" />
             <span>Comparativo de Períodos</span>
           </div>
-          
+
           <PDFDownloadButton contentRef={contentRef} fileName="analise-de-periodo" />
+          <button
+            onClick={onBack}
+            className="px-4 py-2 border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200 text-sm font-medium"
+          >
+            ← Voltar para Linha do Tempo
+          </button>
         </div>
       </div>
 
@@ -562,7 +568,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             {weeklyChartData.length > 0 && weeklyChartData.some(series => series.data.length > 0) ? (
               <ResponsiveLine
                 data={weeklyChartData}
-                margin={{ top: 30, right: 30, bottom: 80, left: 80 }}
+                margin={{ top: 30, right: 30, bottom: 80, left: 100 }}
                 xScale={{ type: "point" }}
                 yScale={getChartScale()}
                 yFormat=" >-.0f"
@@ -575,7 +581,6 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                   legend: "Dia/Mês",
                   legendOffset: 60,
                   legendPosition: "middle",
-                  format: (value) => value, // Garantir que o valor seja exibido como está (DD/MM)
                 }}
                 axisLeft={{
                   tickSize: 5,
@@ -602,58 +607,42 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                 useMesh={true}
                 colors={["#fbbf24", "#3b82f6"]}
                 lineWidth={3}
-                enableArea={false}
-                enableGridX={false}
-                enableGridY={true}
-                gridYValues={5}
-                theme={{
-                  axis: {
-                    ticks: {
-                      text: {
-                        fontSize: 11,
-                        fill: "#6b7280",
-                      },
-                    },
-                    legend: {
-                      text: {
-                        fontSize: 12,
-                        fill: "#374151",
-                        fontWeight: 600,
-                      },
-                    },
+                enableArea={true}
+                areaOpacity={0.2}
+                defs={[
+                  {
+                    id: 'gradientA',
+                    type: 'linearGradient',
+                    colors: [
+                      { offset: 0, color: '#fbbf24', opacity: 0.3 },
+                      { offset: 100, color: '#fbbf24', opacity: 0.1 }
+                    ],
                   },
-                  grid: {
-                    line: {
-                      stroke: "#e5e7eb",
-                      strokeWidth: 1,
-                    },
+                  {
+                    id: 'gradientB',
+                    type: 'linearGradient',
+                    colors: [
+                      { offset: 0, color: '#3b82f6', opacity: 0.3 },
+                      { offset: 100, color: '#3b82f6', opacity: 0.1 }
+                    ],
                   },
-                }}
-                tooltip={({ point }) => (
-                  <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                    <div className="text-sm font-medium text-gray-900">Dia: {point.data.x}</div>
-                    <div className="text-sm text-gray-600">
-                      {point.seriesId}:{" "}
-                      {["ctr", "vtr"].includes(selectedMetric)
-                        ? `${(point.data.y as number).toFixed(2)}%`
-                        : ["cpm", "cpc", "cpv"].includes(selectedMetric)
-                          ? `R$ ${(point.data.y as number).toFixed(2)}`
-                          : (point.data.y as number).toLocaleString("pt-BR")}
-                    </div>
-                  </div>
-                )}
+                ]}
+                fill={[
+                  { match: { id: 'Período Anterior' }, id: 'gradientA' },
+                  { match: { id: 'Período Atual' }, id: 'gradientB' }
+                ]}                
                 legends={[
                   {
-                    anchor: "bottom-right",
-                    direction: "column",
+                    anchor: "top-right",
+                    direction: "row",
                     justify: false,
-                    translateX: 100,
-                    translateY: 0,
-                    itemsSpacing: 0,
+                    translateX: 0,
+                    translateY: -25,
+                    itemsSpacing: 10,
                     itemDirection: "left-to-right",
-                    itemWidth: 80,
+                    itemWidth: 120,
                     itemHeight: 20,
-                    itemOpacity: 0.75,
+                    itemOpacity: 0.85,
                     symbolSize: 12,
                     symbolShape: "circle",
                     symbolBorderColor: "rgba(0, 0, 0, .5)",
@@ -668,6 +657,20 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                     ],
                   },
                 ]}
+                tooltip={({ point }) => (
+                  <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                    <div className="text-sm font-medium text-gray-900">Dia: {point.data.x}</div>
+                    <div className="text-sm text-gray-600">
+                      {point.seriesId}:{" "}
+                      {["ctr", "vtr"].includes(selectedMetric)
+                        ? `${(point.data.y as number).toFixed(2)}%`
+                        : ["cpm", "cpc", "cpv"].includes(selectedMetric)
+                          ? `R$ ${(point.data.y as number).toFixed(2)}`
+                          : (point.data.y as number).toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+                  )
+                }
               />
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
