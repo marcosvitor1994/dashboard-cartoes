@@ -354,11 +354,18 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
     return <Minus className="w-4 h-4 text-gray-400" />
   }
 
-  // Função para obter cor da comparação
   const getComparisonColor = (value: number) => {
     if (!value || isNaN(value)) return "text-gray-400"
     if (value > 0) return "text-green-600"
     if (value < 0) return "text-red-600"
+    return "text-gray-400"
+  }
+
+  // Função para obter cor da comparação específica para CPM (inversa)
+  const getComparisonColorCPM = (value: number) => {
+    if (!value || isNaN(value)) return "text-gray-400"
+    if (value > 0) return "text-red-600"  // Aumento de CPM é ruim (vermelho)
+    if (value < 0) return "text-green-600"  // Diminuição de CPM é bom (verde)
     return "text-gray-400"
   }
 
@@ -605,13 +612,15 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
               <div className="text-xs">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">CPM:</span>
-                  <span className={`font-semibold ${getComparisonColor(weeklyComparison.comparison.cpm)}`}>
+                  <span className={`font-semibold ${getComparisonColorCPM(weeklyComparison.comparison.cpm)}`}>
                     {weeklyComparison.comparison.cpm > 0 ? "+" : ""}
                     {weeklyComparison.comparison.cpm.toFixed(1)}%
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {formatCurrency(weeklyComparison.current.cpm)} vs {formatCurrency(weeklyComparison.previous.cpm)}
+                <div className="text-xs">
+                  <span className="text-blue-600 font-medium">{formatCurrency(weeklyComparison.current.cpm)}</span>
+                  <span className="text-gray-500"> vs </span>
+                  <span className="text-orange-600 font-medium">{formatCurrency(weeklyComparison.previous.cpm)}</span>
                 </div>
               </div>
 
@@ -623,8 +632,10 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
                     {weeklyComparison.comparison.ctr.toFixed(1)}%
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {weeklyComparison.current.ctr.toFixed(2)}% vs {weeklyComparison.previous.ctr.toFixed(2)}%
+                <div className="text-xs">
+                  <span className="text-blue-600 font-medium">{weeklyComparison.current.ctr.toFixed(2)}%</span>
+                  <span className="text-gray-500"> vs </span>
+                  <span className="text-orange-600 font-medium">{weeklyComparison.previous.ctr.toFixed(2)}%</span>
                 </div>
               </div>
 
@@ -636,8 +647,10 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
                     {weeklyComparison.comparison.vtr.toFixed(1)}%
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {weeklyComparison.current.vtr.toFixed(2)}% vs {weeklyComparison.previous.vtr.toFixed(2)}%
+                <div className="text-xs">
+                  <span className="text-blue-600 font-medium">{weeklyComparison.current.vtr.toFixed(2)}%</span>
+                  <span className="text-gray-500"> vs </span>
+                  <span className="text-orange-600 font-medium">{weeklyComparison.previous.vtr.toFixed(2)}%</span>
                 </div>
               </div>
             </div>

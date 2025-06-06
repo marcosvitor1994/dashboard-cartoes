@@ -162,8 +162,17 @@ const CriativosMetaAds: React.FC = () => {
       })
       const campaigns = Array.from(campaignSet).filter(Boolean)
       setAvailableCampaigns(campaigns)
+
+      // Selecionar automaticamente a campanha que contém "CPM" no nome
+      const cpmCampaign = campaigns.find(campaign => 
+        campaign.toUpperCase().includes("CPM")
+      )
+      
+      if (cpmCampaign && selectedCampaign === "") {
+        setSelectedCampaign(cpmCampaign)
+      }
     }
-  }, [apiData])
+  }, [apiData, selectedCampaign]) // Adicionei selectedCampaign como dependência
 
   // Filtrar dados
   const filteredData = useMemo(() => {

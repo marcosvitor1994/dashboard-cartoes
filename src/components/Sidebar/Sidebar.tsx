@@ -35,12 +35,6 @@ const menuItems: MenuItem[] = [
     icon: <Home className="w-5 h-5" />,
   },
   {
-    id: "estrategia-documentacao",
-    label: "Estratégia Documentação",
-    path: "/estrategia-documentacao",
-    icon: <FileText className="w-5 h-5" />,
-  },
-  {
     id: "linha-tempo",
     label: "Linha do tempo",
     path: "/linha-tempo",
