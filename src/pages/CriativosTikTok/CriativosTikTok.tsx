@@ -3,29 +3,39 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Video, Calendar, Filter, ExternalLink } from "lucide-react"
-import { useMetaCCBBData } from "../../services/api" // Usando a mesma rota temporariamente
+import { useCartaoTikTokData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface CreativeData {
   date: string
   campaignName: string
+  adGroupName: string
   adName: string
-  destinationUrl: string
-  imageUrl: string
+  adText: string
+  videoThumbnailUrl: string
   impressions: number
-  reach: number
-  linkClicks: number
+  clicks: number
   cost: number
-  videoWatches100: number
-  videoWatches50: number
-  threeSecondViews: number
+  cpc: number
   cpm: number
-  ctr: number
-  vtr: number
+  reach: number
+  frequency: number
+  results: number
+  videoViews: number
+  twoSecondVideoViews: number
+  videoViews25: number
+  videoViews50: number
+  videoViews75: number
+  videoViews100: number
+  profileVisits: number
+  paidLikes: number
+  paidComments: number
+  paidShares: number
+  paidFollows: number
 }
 
 const CriativosTikTok: React.FC = () => {
-  const { data: apiData, loading, error } = useMetaCCBBData() // Temporariamente usando a mesma API
+  const { data: apiData, loading, error } = useCartaoTikTokData()
   const [processedData, setProcessedData] = useState<CreativeData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
@@ -33,7 +43,7 @@ const CriativosTikTok: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
 
-  // Processar dados da API (mesmo código do Meta, mas filtrado para TikTok)
+  // Processar dados da API
   useEffect(() => {
     if (apiData?.values) {
       const headers = apiData.values[0]
@@ -42,60 +52,94 @@ const CriativosTikTok: React.FC = () => {
       const processed: CreativeData[] = rows
         .map((row: string[]) => {
           const parseNumber = (value: string) => {
-            if (!value) return 0
+            if (!value || value === "") return 0
             return Number.parseFloat(value.replace(/[R$\s.]/g, "").replace(",", ".")) || 0
           }
 
           const parseInteger = (value: string) => {
-            if (!value) return 0
+            if (!value || value === "") return 0
             return Number.parseInt(value.replace(/[.\s]/g, "").replace(",", "")) || 0
           }
 
+          const date = row[headers.indexOf("Date")] || ""
+          const campaignName = row[headers.indexOf("Campaign name")] || ""
+          const adGroupName = row[headers.indexOf("Ad group name")] || ""
+          const adName = row[headers.indexOf("Ad name")] || ""
+          const adText = row[headers.indexOf("Ad text")] || ""
+          const videoThumbnailUrl = row[headers.indexOf("Video thumbnail URL")] || ""
           const impressions = parseInteger(row[headers.indexOf("Impressions")])
-          const reach = parseInteger(row[headers.indexOf("Reach")])
-          const linkClicks = parseInteger(row[headers.indexOf("Link clicks")])
+          const clicks = parseInteger(row[headers.indexOf("Clicks")])
           const cost = parseNumber(row[headers.indexOf("Cost")])
-          const videoWatches100 = parseInteger(row[headers.indexOf("Video watches at 100%")])
-          const videoWatches50 = parseInteger(row[headers.indexOf("Video watches at 50%")])
-          const threeSecondViews = parseInteger(row[headers.indexOf("Three-second video views")])
+          const cpc = parseNumber(row[headers.indexOf("CPC")])
+          const cpm = parseNumber(row[headers.indexOf("CPM")])
+          const reach = parseInteger(row[headers.indexOf("Reach")])
+          const frequency = parseNumber(row[headers.indexOf("Frequency")])
+          const results = parseInteger(row[headers.indexOf("Results")])
+          const videoViews = parseInteger(row[headers.indexOf("Video views")])
+          const twoSecondVideoViews = parseInteger(row[headers.indexOf("2-second video views")])
+          const videoViews25 = parseInteger(row[headers.indexOf("Video views at 25%")])
+          const videoViews50 = parseInteger(row[headers.indexOf("Video views at 50%")])
+          const videoViews75 = parseInteger(row[headers.indexOf("Video views at 75%")])
+          const videoViews100 = parseInteger(row[headers.indexOf("Video views at 100%")])
+          const profileVisits = parseInteger(row[headers.indexOf("Profile visits")])
+          const paidLikes = parseInteger(row[headers.indexOf("Paid likes")])
+          const paidComments = parseInteger(row[headers.indexOf("Paid comments")])
+          const paidShares = parseInteger(row[headers.indexOf("Paid shares")])
+          const paidFollows = parseInteger(row[headers.indexOf("Paid follows")])
 
           return {
-            date: row[headers.indexOf("Date")] || "",
-            campaignName: row[headers.indexOf("Campaign name")] || "",
-            adName: row[headers.indexOf("Ad name")] || "",
-            destinationUrl: row[headers.indexOf("Destination URL")] || "",
-            imageUrl: row[headers.indexOf("Ad creative image URL")] || "",
+            date,
+            campaignName,
+            adGroupName,
+            adName,
+            adText,
+            videoThumbnailUrl,
             impressions,
-            reach,
-            linkClicks,
+            clicks,
             cost,
-            videoWatches100,
-            videoWatches50,
-            threeSecondViews,
-            cpm: impressions > 0 ? cost / (impressions / 1000) : 0,
-            ctr: impressions > 0 ? (linkClicks / impressions) * 100 : 0,
-            // Corrigir cálculo do VTR: (Visualizações 100% / Impressões) * 100
-            vtr: impressions > 0 ? (videoWatches100 / impressions) * 100 : 0,
+            cpc,
+            cpm,
+            reach,
+            frequency,
+            results,
+            videoViews,
+            twoSecondVideoViews,
+            videoViews25,
+            videoViews50,
+            videoViews75,
+            videoViews100,
+            profileVisits,
+            paidLikes,
+            paidComments,
+            paidShares,
+            paidFollows,
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
-        // Filtrar apenas campanhas que contenham "TikTok" (quando houver dados reais)
-        .filter((item: CreativeData) => item.campaignName.toLowerCase().includes("tiktok") || true) // Removendo filtro temporariamente
 
       // Agrupar por criativo (mesmo ad name) e somar métricas
       const groupedData: Record<string, CreativeData> = {}
       processed.forEach((item) => {
-        const key = `${item.adName}_${item.imageUrl}`
+        const key = `${item.adName}_${item.videoThumbnailUrl}`
         if (!groupedData[key]) {
           groupedData[key] = { ...item }
         } else {
           groupedData[key].impressions += item.impressions
-          groupedData[key].reach += item.reach
-          groupedData[key].linkClicks += item.linkClicks
+          groupedData[key].clicks += item.clicks
           groupedData[key].cost += item.cost
-          groupedData[key].videoWatches100 += item.videoWatches100
-          groupedData[key].videoWatches50 += item.videoWatches50
-          groupedData[key].threeSecondViews += item.threeSecondViews
+          groupedData[key].reach += item.reach
+          groupedData[key].results += item.results
+          groupedData[key].videoViews += item.videoViews
+          groupedData[key].twoSecondVideoViews += item.twoSecondVideoViews
+          groupedData[key].videoViews25 += item.videoViews25
+          groupedData[key].videoViews50 += item.videoViews50
+          groupedData[key].videoViews75 += item.videoViews75
+          groupedData[key].videoViews100 += item.videoViews100
+          groupedData[key].profileVisits += item.profileVisits
+          groupedData[key].paidLikes += item.paidLikes
+          groupedData[key].paidComments += item.paidComments
+          groupedData[key].paidShares += item.paidShares
+          groupedData[key].paidFollows += item.paidFollows
         }
       })
 
@@ -103,9 +147,8 @@ const CriativosTikTok: React.FC = () => {
       const finalData = Object.values(groupedData).map((item) => ({
         ...item,
         cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
-        ctr: item.impressions > 0 ? (item.linkClicks / item.impressions) * 100 : 0,
-        // Corrigir cálculo do VTR: (Visualizações 100% / Impressões) * 100
-        vtr: item.impressions > 0 ? (item.videoWatches100 / item.impressions) * 100 : 0,
+        cpc: item.clicks > 0 ? item.cost / item.clicks : 0,
+        frequency: item.reach > 0 ? item.impressions / item.reach : 0,
       }))
 
       // Ordenar por investimento (custo) decrescente
@@ -137,13 +180,23 @@ const CriativosTikTok: React.FC = () => {
   const filteredData = useMemo(() => {
     let filtered = processedData
 
+    // Filtro por período
+    if (dateRange.start && dateRange.end) {
+      filtered = filtered.filter((item) => {
+        const itemDate = new Date(item.date)
+        const startDate = new Date(dateRange.start)
+        const endDate = new Date(dateRange.end)
+        return itemDate >= startDate && itemDate <= endDate
+      })
+    }
+
     // Filtro por campanha
     if (selectedCampaign) {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
     return filtered
-  }, [processedData, selectedCampaign])
+  }, [processedData, selectedCampaign, dateRange])
 
   // Paginação
   const paginatedData = useMemo(() => {
@@ -160,18 +213,25 @@ const CriativosTikTok: React.FC = () => {
       investment: filteredData.reduce((sum, item) => sum + item.cost, 0),
       impressions: filteredData.reduce((sum, item) => sum + item.impressions, 0),
       reach: filteredData.reduce((sum, item) => sum + item.reach, 0),
-      linkClicks: filteredData.reduce((sum, item) => sum + item.linkClicks, 0),
+      clicks: filteredData.reduce((sum, item) => sum + item.clicks, 0),
+      videoViews: filteredData.reduce((sum, item) => sum + item.videoViews, 0),
+      videoViews100: filteredData.reduce((sum, item) => sum + item.videoViews100, 0),
+      paidLikes: filteredData.reduce((sum, item) => sum + item.paidLikes, 0),
       avgCpm: 0,
-      avgCtr: 0,
-      avgVtr: 0,
+      avgCpc: 0,
+      avgFrequency: 0,
+      ctr: 0,
+      vtr: 0,
     }
   }, [filteredData])
 
   // Calcular médias
   if (filteredData.length > 0) {
     totals.avgCpm = totals.impressions > 0 ? totals.investment / (totals.impressions / 1000) : 0
-    totals.avgCtr = totals.impressions > 0 ? (totals.linkClicks / totals.impressions) * 100 : 0
-    totals.avgVtr = filteredData.reduce((sum, item) => sum + item.vtr, 0) / filteredData.length
+    totals.avgCpc = totals.clicks > 0 ? totals.investment / totals.clicks : 0
+    totals.avgFrequency = totals.reach > 0 ? totals.impressions / totals.reach : 0
+    totals.ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
+    totals.vtr = totals.impressions > 0 ? (totals.videoViews100 / totals.impressions) * 100 : 0
   }
 
   // Função para formatar números
@@ -228,21 +288,7 @@ const CriativosTikTok: React.FC = () => {
           <div className="text-sm text-gray-600 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-lg">
             Última atualização: {new Date().toLocaleString("pt-BR")}
           </div>
-          <select
-            value={`${dateRange.start} - ${dateRange.end}`}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
-          >
-            <option>Selecionar período</option>
-          </select>
         </div>
-      </div>
-
-      {/* Aviso Temporário */}
-      <div className="bg-yellow-50/90 backdrop-blur-sm border border-yellow-200 rounded-lg p-4">
-        <p className="text-yellow-800 text-sm">
-          <strong>Aviso:</strong> Esta página está usando dados temporários do Meta Ads. Quando a rota específica do
-          TikTok estiver disponível, os dados serão atualizados automaticamente.
-        </p>
       </div>
 
       {/* Filtros */}
@@ -290,21 +336,18 @@ const CriativosTikTok: React.FC = () => {
             </select>
           </div>
 
-          {/* Filtro de Tipo */}
+          {/* Informações adicionais */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Criativo</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm">
-              <option>Todos os tipos</option>
-              <option>Vídeo Vertical</option>
-              <option>Vídeo Quadrado</option>
-              <option>Spark Ads</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Total de Criativos</label>
+            <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-600">
+              {filteredData.length} criativos encontrados
+            </div>
           </div>
         </div>
       </div>
 
       {/* Métricas Principais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
           <div className="text-sm text-gray-600 mb-1">Investimento</div>
           <div className="text-lg font-bold text-gray-900">{formatCurrency(totals.investment)}</div>
@@ -321,8 +364,8 @@ const CriativosTikTok: React.FC = () => {
         </div>
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
-          <div className="text-sm text-gray-600 mb-1">Cliques no Link</div>
-          <div className="text-lg font-bold text-gray-900">{formatNumber(totals.linkClicks)}</div>
+          <div className="text-sm text-gray-600 mb-1">Cliques</div>
+          <div className="text-lg font-bold text-gray-900">{formatNumber(totals.clicks)}</div>
         </div>
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
@@ -331,13 +374,18 @@ const CriativosTikTok: React.FC = () => {
         </div>
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+          <div className="text-sm text-gray-600 mb-1">CPC</div>
+          <div className="text-lg font-bold text-gray-900">{formatCurrency(totals.avgCpc)}</div>
+        </div>
+
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
           <div className="text-sm text-gray-600 mb-1">CTR</div>
-          <div className="text-lg font-bold text-gray-900">{totals.avgCtr.toFixed(2)}%</div>
+          <div className="text-lg font-bold text-gray-900">{totals.ctr.toFixed(2)}%</div>
         </div>
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
           <div className="text-sm text-gray-600 mb-1">VTR</div>
-          <div className="text-lg font-bold text-gray-900">{totals.avgVtr.toFixed(2)}%</div>
+          <div className="text-lg font-bold text-gray-900">{totals.vtr.toFixed(2)}%</div>
         </div>
       </div>
 
@@ -352,60 +400,55 @@ const CriativosTikTok: React.FC = () => {
                 <th className="text-right py-3 px-4 font-semibold">Investimento</th>
                 <th className="text-right py-3 px-4 font-semibold">Impressões</th>
                 <th className="text-right py-3 px-4 font-semibold">Alcance</th>
-                <th className="text-right py-3 px-4 font-semibold">Cliques no Link</th>
-                <th className="text-right py-3 px-4 font-semibold">CPM</th>
+                <th className="text-right py-3 px-4 font-semibold">Cliques</th>
+                <th className="text-right py-3 px-4 font-semibold">Views 100%</th>
+                <th className="text-right py-3 px-4 font-semibold">Likes</th>
                 <th className="text-right py-3 px-4 font-semibold">VTR</th>
-                <th className="text-center py-3 px-4 font-semibold">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedData.map((creative, index) => (
-                <tr key={index} className={index % 2 === 0 ? "bg-pink-50" : "bg-white"}>
-                  <td className="py-3 px-4">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                      {creative.imageUrl ? (
-                        <img
-                          src={creative.imageUrl || "/placeholder.svg"}
-                          alt="Criativo"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = "none"
-                            target.parentElement!.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
-                          }}
-                        />
-                      ) : (
-                        <div className="text-gray-400 text-xs">Sem imagem</div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="max-w-xs">
-                      <p className="font-medium text-gray-900 text-sm">{truncateText(creative.adName, 60)}</p>
-                      <p className="text-xs text-gray-500 mt-1">{truncateText(creative.campaignName, 40)}</p>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-right font-semibold">{formatCurrency(creative.cost)}</td>
-                  <td className="py-3 px-4 text-right">{formatNumber(creative.impressions)}</td>
-                  <td className="py-3 px-4 text-right">{formatNumber(creative.reach)}</td>
-                  <td className="py-3 px-4 text-right">{formatNumber(creative.linkClicks)}</td>
-                  <td className="py-3 px-4 text-right">{formatCurrency(creative.cpm)}</td>
-                  <td className="py-3 px-4 text-right">{creative.vtr.toFixed(1)}%</td>
-                  <td className="py-3 px-4 text-center">
-                    {creative.destinationUrl && (
-                      <a
-                        href={creative.destinationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-pink-600 hover:text-pink-800 transition-colors"
-                        title="Abrir URL de destino"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.map((creative, index) => {
+                const vtr = creative.impressions > 0 ? (creative.videoViews100 / creative.impressions) * 100 : 0
+                
+                return (
+                  <tr key={index} className={index % 2 === 0 ? "bg-pink-50" : "bg-white"}>
+                    <td className="py-3 px-4">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                        {creative.videoThumbnailUrl ? (
+                          <img
+                            src={creative.videoThumbnailUrl || "/placeholder.svg"}
+                            alt="Criativo"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = "none"
+                              target.parentElement!.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
+                            }}
+                          />
+                        ) : (
+                          <div className="text-gray-400 text-xs">Sem imagem</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="max-w-xs">
+                        <p className="font-medium text-gray-900 text-sm">{truncateText(creative.adName, 60)}</p>
+                        <p className="text-xs text-gray-500 mt-1">{truncateText(creative.campaignName, 40)}</p>
+                        {creative.adText && (
+                          <p className="text-xs text-gray-400 mt-1">{truncateText(creative.adText, 50)}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-right font-semibold">{formatCurrency(creative.cost)}</td>
+                    <td className="py-3 px-4 text-right">{formatNumber(creative.impressions)}</td>
+                    <td className="py-3 px-4 text-right">{formatNumber(creative.reach)}</td>
+                    <td className="py-3 px-4 text-right">{formatNumber(creative.clicks)}</td>
+                    <td className="py-3 px-4 text-right">{formatNumber(creative.videoViews100)}</td>
+                    <td className="py-3 px-4 text-right">{formatNumber(creative.paidLikes)}</td>
+                    <td className="py-3 px-4 text-right">{vtr.toFixed(2)}%</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

@@ -13,7 +13,9 @@ import Visualizacoes from "./pages/Visualizacoes/Visualizacoes"
 import TrafegoEngajamento from "./pages/TrafegoEngajamento/TrafegoEngajamento"
 import CriativosTikTok from "./pages/CriativosTikTok/CriativosTikTok"
 import CriativosMetaAds from "./pages/CriativosMetaAds/CriativosMetaAds"
+import CriativosPinterest from "./pages/CriativosPinterest/CriativosPinterest"
 import "./App.css"
+import CriativosLinkedIn from "./pages/CriativosLinkedIn/CriativosLinkedin"
 
 // Substitua pelo seu Google Client ID
 const GOOGLE_CLIENT_ID = "817600868083-2nmpbvf4emg6a21hrl4esjjo5g3ohepv.apps.googleusercontent.com"
@@ -36,8 +38,10 @@ function App() {
                 <Route path="/alcance" element={<Alcance />} />
                 <Route path="/visualizacoes" element={<Visualizacoes />} />
                 <Route path="/trafego-engajamento" element={<TrafegoEngajamento />} />
-                <Route path="/criativos-tiktok" element={<CriativosTikTok />} />
                 <Route path="/criativos-meta-ads" element={<CriativosMetaAds />} />
+                <Route path="/criativos-tiktok" element={<CriativosTikTok />} />
+                <Route path="/criativos-pinterest" element={<CriativosPinterest />} />
+                <Route path="/criativos-linkedin" element={<CriativosLinkedIn />} />
               </Routes>
             </Layout>
           </ProtectedRoute>

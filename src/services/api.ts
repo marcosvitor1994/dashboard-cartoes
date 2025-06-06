@@ -55,6 +55,51 @@ export const fetchGA4ResumoData = async () => {
   }
 }
 
+// NOVAS FUNÇÕES PARA OS CRIATIVOS
+// Função para buscar dados do Meta
+export const fetchCartaoMetaData = async () => {
+  try {
+    const response = await api.get("/cartao/meta")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do Meta:", error)
+    throw error
+  }
+}
+
+// Função para buscar dados do TikTok
+export const fetchCartaoTikTokData = async () => {
+  try {
+    const response = await api.get("/cartao/tiktok")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do TikTok:", error)
+    throw error
+  }
+}
+
+// Função para buscar dados do Pinterest
+export const fetchCartaoPinterestData = async () => {
+  try {
+    const response = await api.get("/cartao/pinterest")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do Pinterest:", error)
+    throw error
+  }
+}
+
+// Função para buscar dados do LinkedIn
+export const fetchCartaoLinkedInData = async () => {
+  try {
+    const response = await api.get("/cartao/linkedin")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do LinkedIn:", error)
+    throw error
+  }
+}
+
 // Função para buscar dados do CCBB (manter compatibilidade)
 export const fetchCCBBData = async () => {
   try {
@@ -150,6 +195,111 @@ export const useGA4ResumoData = () => {
     try {
       setLoading(true)
       const result = await fetchGA4ResumoData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// NOVOS HOOKS PARA OS CRIATIVOS
+// Hook personalizado para usar os dados do Meta
+export const useCartaoMetaData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchCartaoMetaData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados do TikTok
+export const useCartaoTikTokData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchCartaoTikTokData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados do Pinterest
+export const useCartaoPinterestData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchCartaoPinterestData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados do LinkedIn
+export const useCartaoLinkedInData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchCartaoLinkedInData()
       setData(result)
       setError(null)
     } catch (err) {
