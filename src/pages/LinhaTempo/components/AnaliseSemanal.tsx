@@ -94,6 +94,15 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
     "impressions" | "clicks" | "views" | "cpm" | "cpc" | "cpv" | "ctr" | "vtr"
   >("impressions")
 
+  // Função para criar datas locais sem problemas de timezone
+  const createLocalDate = (dateStr: string) => {
+    if (!dateStr) return new Date()
+    const parts = dateStr.split("-")
+    if (parts.length !== 3) return new Date()
+    const [year, month, day] = parts
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+
   // Configurar automaticamente os últimos 7 dias
   useEffect(() => {
     if (processedData.length > 0) {
@@ -104,10 +113,10 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
 
       if (allDates.length > 0) {
         const lastDate = allDates[allDates.length - 1]
-        const lastDateObj = new Date(lastDate)
+        const lastDateObj = createLocalDate(lastDate) // ← MUDANÇA AQUI
 
         // Calcular 7 dias antes da última data
-        const firstDateObj = new Date(lastDateObj)
+        const firstDateObj = new Date(lastDateObj) // ← Esta pode ficar assim pois já é um Date object
         firstDateObj.setDate(lastDateObj.getDate() - 6)
 
         const firstDate = firstDateObj.toISOString().split("T")[0]
@@ -127,14 +136,14 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
     }
 
     // Com filtro de data selecionado
-    const startDate = new Date(dateRange.start)
-    const endDate = new Date(dateRange.end)
+    const startDate = createLocalDate(dateRange.start) // ← MUDANÇA AQUI
+    const endDate = createLocalDate(dateRange.end) // ← MUDANÇA AQUI
 
     // Calcular período anterior com a mesma duração
     const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    const previousStartDate = new Date(startDate)
+    const previousStartDate = new Date(startDate) // ← Esta pode ficar assim pois já é um Date object
     previousStartDate.setDate(startDate.getDate() - periodDuration)
-    const previousEndDate = new Date(previousStartDate)
+    const previousEndDate = new Date(previousStartDate) // ← Esta pode ficar assim pois já é um Date object
     previousEndDate.setDate(previousStartDate.getDate() + periodDuration - 1)
 
     let targetStartDate: Date
@@ -149,7 +158,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
     }
 
     return processedData.filter((item) => {
-      const itemDate = new Date(item.date)
+      const itemDate = createLocalDate(item.date) // ← MUDANÇA AQUI
       const isInDateRange = itemDate >= targetStartDate && itemDate <= targetEndDate
       const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform)
       return isInDateRange && isVehicleSelected
@@ -219,7 +228,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
     const groupByDay = (data: DataPoint[]) => {
       const grouped: Record<string, DataPoint[]> = {}
       data.forEach((item) => {
-        const date = new Date(item.date)
+        const date = createLocalDate(item.date) // ← MUDANÇA AQUI
         const dayKey = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
         if (!grouped[dayKey]) grouped[dayKey] = []
         grouped[dayKey].push(item)
@@ -370,13 +379,13 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
   const getPreviousPeriodDates = () => {
     if (!dateRange.start || !dateRange.end) return { start: "", end: "" }
 
-    const startDate = new Date(dateRange.start)
-    const endDate = new Date(dateRange.end)
+    const startDate = createLocalDate(dateRange.start) // ← MUDANÇA AQUI
+    const endDate = createLocalDate(dateRange.end) // ← MUDANÇA AQUI
     const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
-    const previousStartDate = new Date(startDate)
+    const previousStartDate = new Date(startDate) // ← Esta pode ficar assim pois já é um Date object
     previousStartDate.setDate(startDate.getDate() - periodDuration)
-    const previousEndDate = new Date(previousStartDate)
+    const previousEndDate = new Date(previousStartDate) // ← Esta pode ficar assim pois já é um Date object
     previousEndDate.setDate(previousStartDate.getDate() + periodDuration - 1)
 
     return {
@@ -411,20 +420,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
       {/* Indicador de Períodos Comparados */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
         <div className="flex items-center justify-center space-x-8">
-          <div className="text-center">
-            <div className="flex items-center space-x-2 text-blue-600 mb-1">
-              <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-              <span className="text-sm font-medium">Período Atual</span>
-            </div>
-            <p className="text-lg font-bold text-gray-900">
-              {dateRange.start &&
-                dateRange.end &&
-                `${new Date(dateRange.start).toLocaleDateString("pt-BR")} - ${new Date(dateRange.end).toLocaleDateString("pt-BR")}`}
-            </p>
-          </div>
-          <div className="text-center">
-            <span className="text-gray-400 text-2xl">vs</span>
-          </div>
+
           <div className="text-center">
             <div className="flex items-center space-x-2 text-orange-600 mb-1">
               <div className="w-3 h-3 bg-orange-600 rounded-full"></div>
@@ -434,6 +430,23 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
               {previousPeriod.start && previousPeriod.end && `${previousPeriod.start} - ${previousPeriod.end}`}
             </p>
           </div>
+
+          <div className="text-center">
+            <span className="text-gray-400 text-2xl">vs</span>
+          </div>
+
+          <div className="text-center">
+            <div className="flex items-center space-x-2 text-blue-600 mb-1">
+              <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+              <span className="text-sm font-medium">Período Atual</span>
+            </div>
+            <p className="text-lg font-bold text-gray-900">
+              {dateRange.start &&
+                dateRange.end &&
+                `${createLocalDate(dateRange.start).toLocaleDateString("pt-BR")} - ${createLocalDate(dateRange.end).toLocaleDateString("pt-BR")}`}
+            </p>
+          </div>      
+
         </div>
       </div>
 

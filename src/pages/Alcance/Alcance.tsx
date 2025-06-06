@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Users, Calendar, Filter } from "lucide-react"
+import { Users, Calendar, Filter, ShoppingCart, Info } from "lucide-react"
 import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
@@ -20,6 +20,7 @@ interface ProcessedData {
   visualizacoes100: number
   cpv: number
   vtr100: number
+  tipoCompra: string
 }
 
 interface PlatformMetrics {
@@ -36,6 +37,7 @@ interface PlatformMetrics {
   vtr100: number
   color: string
   percentage: number
+  tiposCompra: string[]
 }
 
 const Alcance: React.FC = () => {
@@ -43,7 +45,9 @@ const Alcance: React.FC = () => {
   const [processedData, setProcessedData] = useState<ProcessedData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
+  const [selectedTiposCompra, setSelectedTiposCompra] = useState<string[]>([])
   const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([])
+  const [availableTiposCompra, setAvailableTiposCompra] = useState<string[]>([])
 
   // Cores para as plataformas
   const platformColors: Record<string, string> = {
@@ -63,7 +67,19 @@ const Alcance: React.FC = () => {
     "Portal Fórum": "#8b4513",
     "Brasil 247": "#ff4500",
     "Poder 360": "#4b0082",
+    LinkedIn: "#0077B5",
+    Pinterest: "#E60023",
+    GDN: "#34A853",
+    "Demand-Gen": "#EA4335",
     Default: "#6366f1",
+  }
+
+  // Cores para tipos de compra
+  const tipoCompraColors: Record<string, string> = {
+    CPM: "#3B82F6", // Azul
+    CPC: "#10B981", // Verde
+    CPV: "#F59E0B", // Amarelo/Laranja
+    Default: "#6B7280", // Cinza
   }
 
   // Processar dados da API
@@ -98,6 +114,7 @@ const Alcance: React.FC = () => {
             visualizacoes100: parseInteger(row[headers.indexOf("Video views")]),
             cpv: parseNumber(row[headers.indexOf("CPV")]),
             vtr100: parseNumber(row[headers.indexOf("VTR")]),
+            tipoCompra: row[headers.indexOf("Tipo de Compra")] || "CPM",
           } as ProcessedData
         })
         .filter((item: ProcessedData) => item.date && item.impressions > 0)
@@ -136,10 +153,21 @@ const Alcance: React.FC = () => {
       const platforms = Array.from(platformSet).filter(Boolean)
       setAvailablePlatforms(platforms)
       setSelectedPlatforms([]) // Inicialmente nenhuma plataforma selecionada
+
+      // Extrair tipos de compra únicos
+      const tipoCompraSet = new Set<string>()
+      processed.forEach((item) => {
+        if (item.tipoCompra) {
+          tipoCompraSet.add(item.tipoCompra)
+        }
+      })
+      const tiposCompra = Array.from(tipoCompraSet).filter(Boolean)
+      setAvailableTiposCompra(tiposCompra)
+      setSelectedTiposCompra([]) // Inicialmente nenhum tipo selecionado
     }
   }, [apiData])
 
-  // Filtrar dados por data e plataforma
+  // Filtrar dados por data, plataforma e tipo de compra
   const filteredData = useMemo(() => {
     let filtered = processedData
 
@@ -168,8 +196,25 @@ const Alcance: React.FC = () => {
       filtered = filtered.filter((item) => selectedPlatforms.includes(item.platform))
     }
 
+    // Filtro por tipo de compra
+    if (selectedTiposCompra.length > 0) {
+      filtered = filtered.filter((item) => selectedTiposCompra.includes(item.tipoCompra))
+    }
+
     return filtered
-  }, [processedData, dateRange, selectedPlatforms])
+  }, [processedData, dateRange, selectedPlatforms, selectedTiposCompra])
+
+  // Função para ordenar tipos de compra na ordem correta
+  const sortTiposCompra = (tipos: string[]): string[] => {
+    const ordem = ['CPM', 'CPC', 'CPV']
+    return tipos.sort((a, b) => {
+      const indexA = ordem.indexOf(a)
+      const indexB = ordem.indexOf(b)
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+  }
 
   // Calcular métricas por plataforma
   const platformMetrics = useMemo(() => {
@@ -191,6 +236,7 @@ const Alcance: React.FC = () => {
           vtr100: 0,
           color: platformColors[item.platform] || platformColors.Default,
           percentage: 0,
+          tiposCompra: [],
         }
       }
 
@@ -200,6 +246,11 @@ const Alcance: React.FC = () => {
       metrics[item.platform].clicks += item.clicks
       metrics[item.platform].linkClicks += item.linkClicks
       metrics[item.platform].visualizacoes100 += item.visualizacoes100
+
+      // Adicionar tipo de compra se não existir
+      if (!metrics[item.platform].tiposCompra.includes(item.tipoCompra)) {
+        metrics[item.platform].tiposCompra.push(item.tipoCompra)
+      }
     })
 
     // Calcular médias e percentuais
@@ -213,10 +264,108 @@ const Alcance: React.FC = () => {
         metric.cpv = metric.visualizacoes100 > 0 ? metric.cost / metric.visualizacoes100 : 0
         metric.vtr100 = metric.impressions > 0 ? (metric.visualizacoes100 / metric.impressions) * 100 : 0
         metric.percentage = totalReach > 0 ? (metric.reach / totalReach) * 100 : 0
+        // Ordenar tipos de compra
+        metric.tiposCompra = sortTiposCompra(metric.tiposCompra)
       }
     })
 
     return Object.values(metrics).sort((a, b) => b.reach - a.reach)
+  }, [filteredData])
+
+  // Calcular métricas por tipo de compra
+  const tipoCompraMetrics = useMemo(() => {
+    const metrics: Record<string, any> = {}
+
+    filteredData.forEach((item) => {
+      if (!metrics[item.tipoCompra]) {
+        metrics[item.tipoCompra] = {
+          tipoCompra: item.tipoCompra,
+          impressions: 0,
+          cost: 0,
+          reach: 0,
+          clicks: 0,
+          cpm: 0,
+          frequency: 0,
+          linkClicks: 0,
+          visualizacoes100: 0,
+          cpv: 0,
+          vtr100: 0,
+          color: tipoCompraColors[item.tipoCompra] || tipoCompraColors.Default,
+          percentage: 0,
+        }
+      }
+
+      metrics[item.tipoCompra].impressions += item.impressions
+      metrics[item.tipoCompra].cost += item.cost
+      metrics[item.tipoCompra].reach += item.reach
+      metrics[item.tipoCompra].clicks += item.clicks
+      metrics[item.tipoCompra].linkClicks += item.linkClicks
+      metrics[item.tipoCompra].visualizacoes100 += item.visualizacoes100
+    })
+
+    // Calcular médias e percentuais
+    const totalReach = Object.values(metrics).reduce((sum: any, metric: any) => sum + metric.reach, 0)
+
+    Object.values(metrics).forEach((metric: any) => {
+      const tipoCompraData = filteredData.filter((item) => item.tipoCompra === metric.tipoCompra)
+      if (tipoCompraData.length > 0) {
+        metric.cpm = metric.cost / (metric.impressions / 1000)
+        metric.frequency = metric.reach > 0 ? metric.impressions / metric.reach : 0
+        metric.cpv = metric.visualizacoes100 > 0 ? metric.cost / metric.visualizacoes100 : 0
+        metric.vtr100 = metric.impressions > 0 ? (metric.visualizacoes100 / metric.impressions) * 100 : 0
+        metric.percentage = totalReach > 0 ? (metric.reach / totalReach) * 100 : 0
+      }
+    })
+
+    return Object.values(metrics).sort((a: any, b: any) => b.reach - a.reach)
+  }, [filteredData])
+
+  // Calcular custos médios por tipo de compra
+  const custoMedioTipoCompra = useMemo(() => {
+    const custos: Record<string, { total: number; valor: number; count: number; color: string }> = {}
+
+    filteredData.forEach((item) => {
+      if (!custos[item.tipoCompra]) {
+        custos[item.tipoCompra] = {
+          total: 0,
+          valor: 0,
+          count: 0,
+          color: tipoCompraColors[item.tipoCompra] || tipoCompraColors.Default,
+        }
+      }
+
+      custos[item.tipoCompra].total += item.cost
+      custos[item.tipoCompra].count += 1
+
+      // Calcular custo médio baseado no tipo
+      let custoUnitario = 0
+      if (item.tipoCompra === 'CPM' && item.impressions > 0) {
+        custoUnitario = item.cost / (item.impressions / 1000)
+      } else if (item.tipoCompra === 'CPC' && item.clicks > 0) {
+        custoUnitario = item.cost / item.clicks
+      } else if (item.tipoCompra === 'CPV' && item.visualizacoes100 > 0) {
+        custoUnitario = item.cost / item.visualizacoes100
+      }
+
+      if (custoUnitario > 0) {
+        custos[item.tipoCompra].valor += custoUnitario
+      }
+    })
+
+    return Object.entries(custos)
+      .map(([tipo, data]) => ({
+        tipoCompra: tipo,
+        custoMedio: data.count > 0 ? data.valor / data.count : 0,
+        color: data.color,
+      }))
+      .sort((a, b) => {
+        const ordem = ['CPM', 'CPC', 'CPV']
+        const indexA = ordem.indexOf(a.tipoCompra)
+        const indexB = ordem.indexOf(b.tipoCompra)
+        if (indexA === -1) return 1
+        if (indexB === -1) return -1
+        return indexA - indexB
+      })
   }, [filteredData])
 
   // Calcular totais
@@ -237,6 +386,8 @@ const Alcance: React.FC = () => {
       avgCpv: totalVisualizacoes100 > 0 ? totalInvestment / totalVisualizacoes100 : 0,
     }
   }, [filteredData])
+
+  
 
   // Função para formatar números
   const formatNumber = (value: number): string => {
@@ -270,8 +421,18 @@ const Alcance: React.FC = () => {
     })
   }
 
+  // Função para alternar seleção de tipo de compra
+  const toggleTipoCompra = (tipoCompra: string) => {
+    setSelectedTiposCompra((prev) => {
+      if (prev.includes(tipoCompra)) {
+        return prev.filter((t) => t !== tipoCompra)
+      }
+      return [...prev, tipoCompra]
+    })
+  }
+
   // Componente de gráfico de barras empilhadas horizontal
-  const StackedBarChart: React.FC<{ title: string; data: PlatformMetrics[] }> = ({ title, data }) => (
+  const StackedBarChart: React.FC<{ title: string; data: any[]; dataKey?: string }> = ({ title, data, dataKey = "percentage" }) => (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
       <div className="space-y-2">
@@ -294,13 +455,13 @@ const Alcance: React.FC = () => {
               key={index}
               className="flex items-center justify-center text-xs font-medium text-white"
               style={{
-                width: `${item.percentage}%`,
+                width: `${item[dataKey]}%`,
                 backgroundColor: item.color,
-                minWidth: item.percentage > 3 ? "auto" : "0",
+                minWidth: item[dataKey] > 3 ? "auto" : "0",
               }}
-              title={`${item.platform}: ${item.percentage.toFixed(1)}%`}
+              title={`${item.platform || item.tipoCompra}: ${item[dataKey].toFixed(1)}%`}
             >
-              {item.percentage > 5 ? item.platform : ""}
+              {item[dataKey] > 5 ? (item.platform || item.tipoCompra) : ""}
             </div>
           ))}
         </div>
@@ -308,19 +469,19 @@ const Alcance: React.FC = () => {
           {data.map((item, index) => (
             <div key={index} className="flex items-center space-x-1">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }}></div>
-              <span className="text-xs text-gray-600">{item.platform}</span>
+              <span className="text-xs text-gray-600">{item.platform || item.tipoCompra}</span>
             </div>
           ))}
         </div>
-      </div>
+      </div>      
     </div>
   )
 
   // Componente de gráfico de barras verticais
   const VerticalBarChart: React.FC<{
     title: string
-    data: PlatformMetrics[]
-    getValue: (item: PlatformMetrics) => number
+    data: any[]
+    getValue: (item: any) => number
     format?: (value: number) => string
   }> = ({ title, data, getValue, format = formatNumber }) => {
     const maxValue = Math.max(...data.map(getValue))
@@ -347,7 +508,7 @@ const Alcance: React.FC = () => {
                     {value > 0 && <span>{format(value)}</span>}
                   </div>
                 </div>
-                <span className="text-xs text-gray-600 text-center truncate w-full">{item.platform}</span>
+                <span className="text-xs text-gray-600 text-center truncate w-full">{item.platform || item.tipoCompra}</span>
               </div>
             )
           })}
@@ -439,14 +600,32 @@ const Alcance: React.FC = () => {
             </div>
           </div>
 
-          {/* Tipo de Compra */}
+          {/* Filtro de Tipo de Compra */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Compra</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-              <option>CPM</option>
-              <option>CPC</option>
-              <option>CPV</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Tipo de Compra
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {availableTiposCompra.map((tipoCompra) => (
+                <button
+                  key={tipoCompra}
+                  onClick={() => toggleTipoCompra(tipoCompra)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                    selectedTiposCompra.includes(tipoCompra)
+                      ? "bg-blue-100 text-blue-800 border border-blue-300"
+                      : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                  }`}
+                  style={{
+                    backgroundColor: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] + "20" : undefined,
+                    borderColor: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] : undefined,
+                    color: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] : undefined,
+                  }}
+                >
+                  {tipoCompra}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -481,32 +660,42 @@ const Alcance: React.FC = () => {
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Investimento */}
+        {/* Gráfico de Investimento por Plataforma */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
           <StackedBarChart title="Investimento por Plataforma" data={platformMetrics} />
         </div>
 
-        {/* Gráfico de Alcance */}
+        {/* Gráfico de Investimento por Tipo de Compra */}
+        <div className="card-overlay rounded-lg shadow-lg p-6">
+          <StackedBarChart title="Investimento por Tipo de Compra" data={tipoCompraMetrics} />
+        </div>
+
+        {/* Gráfico de Alcance por Plataforma */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
           <VerticalBarChart title="Alcance por Plataforma" data={platformMetrics} getValue={(item) => item.reach} />
         </div>
 
-        {/* Gráfico de Frequência */}
+        {/* Gráfico de Alcance por Tipo de Compra */}
+        <div className="card-overlay rounded-lg shadow-lg p-6">
+          <VerticalBarChart title="Alcance por Tipo de Compra" data={tipoCompraMetrics} getValue={(item) => item.reach} />
+        </div>
+
+        {/* Gráfico de Frequência por Plataforma */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
           <VerticalBarChart
-            title="Frequência por Plataforma"
+            title="Frequência média por Plataforma"
             data={platformMetrics}
             getValue={(item) => item.frequency}
             format={(value) => value.toFixed(1)}
           />
         </div>
 
-        {/* Gráfico de CPM */}
+        {/* Gráfico de Custo Médio por Tipo de Compra */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
           <VerticalBarChart
-            title="CPM por Plataforma"
-            data={platformMetrics}
-            getValue={(item) => item.cpm}
+            title="Custo médio por Tipo de Compra"
+            data={custoMedioTipoCompra}
+            getValue={(item) => item.custoMedio}
             format={formatCurrency}
           />
         </div>
@@ -523,10 +712,10 @@ const Alcance: React.FC = () => {
                 <th className="text-left py-3 px-4 font-semibold">Plataforma</th>
                 <th className="text-left py-3 px-4 font-semibold">Tipo de Compra</th>
                 <th className="text-right py-3 px-4 font-semibold">Investimento</th>
-                <th className="text-right py-3 px-4 font-semibold">CPM</th>
+                <th className="text-right py-3 px-4 font-semibold">Impressões</th>
                 <th className="text-right py-3 px-4 font-semibold">Alcance</th>
                 <th className="text-right py-3 px-4 font-semibold">Frequência</th>
-                <th className="text-right py-3 px-4 font-semibold">Impressões</th>
+                <th className="text-right py-3 px-4 font-semibold">CPM</th>
               </tr>
             </thead>
             <tbody>
@@ -534,16 +723,48 @@ const Alcance: React.FC = () => {
                 <tr key={index} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
                   <td className="py-3 px-4 font-medium">{index + 1}.</td>
                   <td className="py-3 px-4 font-medium">{metric.platform}</td>
-                  <td className="py-3 px-4 text-sm text-gray-600">CPM</td>
+                  <td className="py-3 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {metric.tiposCompra.map((tipo, tipoIndex) => (
+                        <span 
+                          key={tipoIndex}
+                          className="px-2 py-1 rounded-full text-xs font-medium text-white"
+                          style={{ backgroundColor: tipoCompraColors[tipo] || tipoCompraColors.Default }}
+                        >
+                          {tipo}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                   <td className="py-3 px-4 text-right font-semibold">{formatCurrency(metric.cost)}</td>
-                  <td className="py-3 px-4 text-right">{formatCurrency(metric.cpm)}</td>
+                  <td className="py-3 px-4 text-right">{formatNumber(metric.impressions)}</td>
                   <td className="py-3 px-4 text-right">{formatNumber(metric.reach)}</td>
                   <td className="py-3 px-4 text-right">{metric.frequency.toFixed(1)}</td>
-                  <td className="py-3 px-4 text-right">{formatNumber(metric.impressions)}</td>
+                  <td className="py-3 px-4 text-right">{formatCurrency(metric.cpm)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Alerta Informativo */}
+      <div className="bg-blue-50/90 backdrop-blur-sm border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-blue-900 mb-1">
+              Informações sobre Alcance e Frequência
+            </h3>
+            <p className="text-sm text-blue-700">
+              Os valores de <strong>alcance</strong> e <strong>frequência</strong> apresentados representam uma média aproximada dos números reais. 
+              Devido à natureza da extração diária dos dados e às limitações técnicas das plataformas, 
+              não é possível calcular com precisão absoluta esses indicadores. Os valores servem como referência 
+              para análise de tendências e comparações relativas entre diferentes períodos e veículos.
+            </p>
+          </div>
         </div>
       </div>
     </div>

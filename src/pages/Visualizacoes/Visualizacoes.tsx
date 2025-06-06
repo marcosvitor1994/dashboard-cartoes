@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Play, Calendar, Filter } from "lucide-react"
+import { Play, Calendar, Filter, ShoppingCart, Info } from "lucide-react"
 import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
@@ -25,6 +25,7 @@ interface ProcessedData {
   cpv: number
   cpvc: number
   vtr100: number
+  tipoCompra: string
 }
 
 interface PlatformMetrics {
@@ -48,6 +49,7 @@ interface PlatformMetrics {
   percentage: number
   vtrPercentage: number
   visualizacoesPercentage: number
+  tiposCompra: string[]
 }
 
 const Visualizacoes: React.FC = () => {
@@ -55,8 +57,9 @@ const Visualizacoes: React.FC = () => {
   const [processedData, setProcessedData] = useState<ProcessedData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
+  const [selectedTiposCompra, setSelectedTiposCompra] = useState<string[]>([])
   const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([])
-  const [tipoCompra, setTipoCompra] = useState<string>("CPM")
+  const [availableTiposCompra, setAvailableTiposCompra] = useState<string[]>([])
 
   // Cores para as plataformas (seguindo o modelo da imagem)
   const platformColors: Record<string, string> = {
@@ -71,7 +74,30 @@ const Visualizacoes: React.FC = () => {
     "Catraca Livre": "#00b894", // Verde
     "Globo.com": "#00a085", // Verde escuro
     Pinterest: "#bd081c", // Vermelho Pinterest
+    LinkedIn: "#0077B5",
+    GDN: "#34A853",
+    "Demand-Gen": "#EA4335",
     Default: "#6c5ce7",
+  }
+
+  // Cores para tipos de compra
+  const tipoCompraColors: Record<string, string> = {
+    CPM: "#3B82F6", // Azul
+    CPC: "#10B981", // Verde
+    CPV: "#F59E0B", // Amarelo/Laranja
+    Default: "#6B7280", // Cinza
+  }
+
+  // Função para ordenar tipos de compra na ordem correta
+  const sortTiposCompra = (tipos: string[]): string[] => {
+    const ordem = ['CPM', 'CPC', 'CPV']
+    return tipos.sort((a, b) => {
+      const indexA = ordem.indexOf(a)
+      const indexB = ordem.indexOf(b)
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
   }
 
   // Função para converter data brasileira DD/MM/YYYY para formato ISO YYYY-MM-DD
@@ -129,6 +155,7 @@ const Visualizacoes: React.FC = () => {
               (videoViews > 0 ? parseNumber(row[headers.indexOf("Total spent")]) / videoViews : 0),
             cpvc: parseNumber(row[headers.indexOf("CPVc")]) || parseNumber(row[headers.indexOf("CPV")]) * 0.8,
             vtr100: impressions > 0 && videoCompletions > 0 ? (videoCompletions / impressions) * 100 : 0,
+            tipoCompra: row[headers.indexOf("Tipo de Compra")] || "CPM",
           } as ProcessedData
         })
         .filter((item: ProcessedData) => item.date && item.impressions > 0 && item.videoViews > 0) // Filtrar apenas itens com video views
@@ -160,10 +187,21 @@ const Visualizacoes: React.FC = () => {
       const platforms = Array.from(platformSet).filter(Boolean)
       setAvailablePlatforms(platforms)
       setSelectedPlatforms([]) // Inicialmente nenhuma plataforma selecionada
+
+      // Extrair tipos de compra únicos
+      const tipoCompraSet = new Set<string>()
+      processed.forEach((item) => {
+        if (item.tipoCompra) {
+          tipoCompraSet.add(item.tipoCompra)
+        }
+      })
+      const tiposCompra = Array.from(tipoCompraSet).filter(Boolean)
+      setAvailableTiposCompra(tiposCompra)
+      setSelectedTiposCompra([])
     }
   }, [apiData])
 
-  // Filtrar dados por data e plataforma
+  // Filtrar dados por data, plataforma e tipo de compra
   const filteredData = useMemo(() => {
     let filtered = processedData
 
@@ -185,8 +223,13 @@ const Visualizacoes: React.FC = () => {
       filtered = filtered.filter((item) => selectedPlatforms.includes(item.platform))
     }
 
+    // Filtro por tipo de compra
+    if (selectedTiposCompra.length > 0) {
+      filtered = filtered.filter((item) => selectedTiposCompra.includes(item.tipoCompra))
+    }
+
     return filtered
-  }, [processedData, dateRange, selectedPlatforms])
+  }, [processedData, dateRange, selectedPlatforms, selectedTiposCompra])
 
   // Calcular métricas por plataforma
   const platformMetrics = useMemo(() => {
@@ -215,6 +258,7 @@ const Visualizacoes: React.FC = () => {
           percentage: 0,
           vtrPercentage: 0,
           visualizacoesPercentage: 0,
+          tiposCompra: [],
         }
       }
 
@@ -228,6 +272,11 @@ const Visualizacoes: React.FC = () => {
       metrics[item.platform].videoViews50 += item.videoViews50
       metrics[item.platform].videoViews75 += item.videoViews75
       metrics[item.platform].videoCompletions += item.videoCompletions
+
+      // Adicionar tipo de compra se não existir
+      if (!metrics[item.platform].tiposCompra.includes(item.tipoCompra)) {
+        metrics[item.platform].tiposCompra.push(item.tipoCompra)
+      }
     })
 
     // Calcular médias e percentuais
@@ -246,6 +295,8 @@ const Visualizacoes: React.FC = () => {
         metric.percentage = totalCost > 0 ? (metric.cost / totalCost) * 100 : 0
         metric.visualizacoesPercentage = totalVisualizacoes > 0 ? (metric.videoViews / totalVisualizacoes) * 100 : 0
         metric.vtrPercentage = maxVtr > 0 ? (metric.vtr100 / maxVtr) * 100 : 0
+        // Ordenar tipos de compra
+        metric.tiposCompra = sortTiposCompra(metric.tiposCompra)
       }
     })
 
@@ -303,6 +354,16 @@ const Visualizacoes: React.FC = () => {
     })
   }
 
+  // Função para alternar seleção de tipo de compra
+  const toggleTipoCompra = (tipoCompra: string) => {
+    setSelectedTiposCompra((prev) => {
+      if (prev.includes(tipoCompra)) {
+        return prev.filter((t) => t !== tipoCompra)
+      }
+      return [...prev, tipoCompra]
+    })
+  }
+
   // Componente de curva de retenção
   const RetentionCurveChart: React.FC<{ data: PlatformMetrics[] }> = ({ data }) => {
     return (
@@ -343,7 +404,7 @@ const Visualizacoes: React.FC = () => {
                   <div className="text-right">
                     <div className="text-sm text-gray-600">VTR</div>
                     <div className="text-lg font-bold" style={{ color: platform.color }}>
-                      {platform.vtr100.toFixed(1)}%
+                      {platform.vtr100.toFixed(2)}%
                     </div>
                   </div>
                 </div>
@@ -375,14 +436,14 @@ const Visualizacoes: React.FC = () => {
                       </text>
                     ))}
 
-                    {/* Retention curve */}
+                    {/* Retention curve - linha conectando os pontos */}
                     <path
                       d={`M ${retentionPoints
                         .map((point, i) => `${i === 0 ? "M" : "L"} ${point.x * 3} ${100 - point.y}`)
                         .join(" ")}`}
                       fill="none"
                       stroke={platform.color}
-                      strokeWidth="3"
+                      strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
@@ -483,7 +544,7 @@ const Visualizacoes: React.FC = () => {
                     }}
                   >
                     {value > 0 && (
-                      <span className="text-center">{showPercentage ? `${value.toFixed(1)}%` : format(value)}</span>
+                      <span className="text-center">{showPercentage ? `${value.toFixed(2)}%` : format(value)}</span>
                     )}
                   </div>
                 </div>
@@ -529,18 +590,26 @@ const Visualizacoes: React.FC = () => {
       {/* Filtros */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Tipo de Compra */}
+          {/* Filtro de Data */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Compra</label>
-            <select
-              value={tipoCompra}
-              onChange={(e) => setTipoCompra(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="CPM">CPM</option>
-              <option value="CPV">CPV</option>
-              <option value="CPC">CPC</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Calendar className="w-4 h-4 mr-2" />
+              Período
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
           </div>
 
           {/* Filtro de Plataforma */}
@@ -571,25 +640,31 @@ const Visualizacoes: React.FC = () => {
             </div>
           </div>
 
-          {/* Filtro de Data */}
+          {/* Filtro de Tipo de Compra */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <Calendar className="w-4 h-4 mr-2" />
-              Período
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Tipo de Compra
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+            <div className="flex flex-wrap gap-2">
+              {availableTiposCompra.map((tipoCompra) => (
+                <button
+                  key={tipoCompra}
+                  onClick={() => toggleTipoCompra(tipoCompra)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                    selectedTiposCompra.includes(tipoCompra)
+                      ? "bg-blue-100 text-blue-800 border border-blue-300"
+                      : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                  }`}
+                  style={{
+                    backgroundColor: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] + "20" : undefined,
+                    borderColor: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] : undefined,
+                    color: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] : undefined,
+                  }}
+                >
+                  {tipoCompra}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -604,7 +679,7 @@ const Visualizacoes: React.FC = () => {
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">VTR 100%</div>
-          <div className="text-2xl font-bold text-gray-900">{totals.vtr100.toFixed(1)}%</div>
+          <div className="text-2xl font-bold text-gray-900">{totals.vtr100.toFixed(2)}%</div>
         </div>
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
@@ -650,12 +725,24 @@ const Visualizacoes: React.FC = () => {
                 <tr key={index} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
                   <td className="py-3 px-4 font-medium">{index + 1}.</td>
                   <td className="py-3 px-4 font-medium">{metric.platform}</td>
-                  <td className="py-3 px-4 text-sm text-gray-600">CPM</td>
+                  <td className="py-3 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {metric.tiposCompra.map((tipo, tipoIndex) => (
+                        <span 
+                          key={tipoIndex}
+                          className="px-2 py-1 rounded-full text-xs font-medium text-white"
+                          style={{ backgroundColor: tipoCompraColors[tipo] || tipoCompraColors.Default }}
+                        >
+                          {tipo}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                   <td className="py-3 px-4 text-right font-semibold">{formatCurrency(metric.cost)}</td>
                   <td className="py-3 px-4 text-right">{formatCurrency(metric.cpm)}</td>
                   <td className="py-3 px-4 text-right">{formatCurrency(metric.cpv)}</td>
                   <td className="py-3 px-4 text-right">{formatCurrency(metric.cpvc)}</td>
-                  <td className="py-3 px-4 text-right">{metric.vtr100.toFixed(1)}%</td>
+                  <td className="py-3 px-4 text-right">{metric.vtr100.toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -668,6 +755,25 @@ const Visualizacoes: React.FC = () => {
             <strong>*CPV:</strong> custo/visualizações 50%
             <br />
             <strong>**CPVc:</strong> custo/visualizações 100%
+          </div>
+        </div>
+      </div>
+
+      {/* Alerta Informativo */}
+      <div className="bg-blue-50/90 backdrop-blur-sm border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-blue-900 mb-1">
+              Informações sobre Métricas de Vídeo
+            </h3>
+            <p className="text-sm text-blue-700">
+              As métricas de <strong>visualizações</strong> e <strong>VTR</strong> são baseadas nos dados fornecidos pelas plataformas. 
+              O <strong>CPV</strong> representa o custo por visualização (50% do vídeo) e o <strong>CPVc</strong> o custo por visualização completa (100%). 
+              Estes valores podem variar conforme as configurações de campanha e as definições específicas de cada plataforma.
+            </p>
           </div>
         </div>
       </div>

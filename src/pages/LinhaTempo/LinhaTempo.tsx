@@ -69,6 +69,15 @@ const LinhaTempo: React.FC = () => {
     Default: "#6366f1",
   }
 
+  // Função para criar datas locais sem problemas de timezone
+  const createLocalDate = (dateStr: string) => {
+    if (!dateStr) return new Date()
+    const parts = dateStr.split("-")
+    if (parts.length !== 3) return new Date()
+    const [year, month, day] = parts
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+
   // Processar dados da API
   useEffect(() => {
     if (apiData?.values) {
@@ -576,7 +585,7 @@ const LinhaTempo: React.FC = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{entry.platform}</p>
-                  <p className="text-xs text-gray-500">{new Date(entry.firstDate).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-gray-500">{createLocalDate(entry.firstDate).toLocaleDateString("pt-BR")}</p>
                 </div>
               </div>
             ))}

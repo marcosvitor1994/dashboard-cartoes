@@ -37,10 +37,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Emails específicos autorizados
 const AUTHORIZED_EMAILS = [
-  "marcosvitor1994@gmail.com",
-  "vitor.checkmedia@gmail.com",
   "luiz.coelho@naccom.com.br",
-  "marcos.santos@naccom.com.br",
   "luiz02coelho@gmail.com",
 ]
 
@@ -51,6 +48,8 @@ const AUTHORIZED_EMAILS = [
 // - Qualquer conta Google que use esses domínios
 const AUTHORIZED_DOMAINS = [
   "naccom.com.br",
+  "bb.com.br",
+  "nmbb.com.br",
   // Adicione aqui outros domínios corporativos que devem ter acesso
   // "minhaempresa.com",
   // "outraempresa.com.br",
