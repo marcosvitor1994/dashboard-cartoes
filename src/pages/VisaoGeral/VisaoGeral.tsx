@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { BarChart3, Calendar } from "lucide-react"
-import { useCCBBData } from "../../services/api"
+import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface ProcessedData {
@@ -36,9 +36,10 @@ interface ChartDataPoint {
 }
 
 const VisaoGeral: React.FC = () => {
-  const { data: apiData, loading, error } = useCCBBData()
+  const { data: apiData, loading, error } = useConsolidadoData()
   const [processedData, setProcessedData] = useState<ProcessedData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
 
   // Cores para as plataformas
   const platformColors: Record<string, string> = {
@@ -54,6 +55,31 @@ const VisaoGeral: React.FC = () => {
     Default: "#6366f1",
   }
 
+  const availablePlatforms = useMemo(() => {
+    const platforms = new Set<string>()
+    processedData.forEach((item) => {
+      platforms.add(item.platform)
+    })
+    return Array.from(platforms)
+  }, [processedData])
+
+  const togglePlatform = (platform: string) => {
+    setSelectedPlatforms((prev) => {
+      if (prev.includes(platform)) {
+        return prev.filter((p) => p !== platform)
+      } else {
+        return [...prev, platform]
+      }
+    })
+  }
+
+  // Função para converter data brasileira DD/MM/YYYY para formato ISO YYYY-MM-DD
+  const convertBrazilianDate = (dateStr: string): string => {
+    if (!dateStr) return ""
+    const [day, month, year] = dateStr.split("/")
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+  }
+
   // Processar dados da API
   useEffect(() => {
     if (apiData?.values) {
@@ -62,7 +88,6 @@ const VisaoGeral: React.FC = () => {
 
       const processed: ProcessedData[] = rows
         .map((row: string[]) => {
-          // Mudança aqui: especificar tipo string[] ao invés de any[]
           const parseNumber = (value: string) => {
             if (!value) return 0
             return Number.parseFloat(value.replace(/[R$\s.]/g, "").replace(",", ".")) || 0
@@ -75,27 +100,33 @@ const VisaoGeral: React.FC = () => {
 
           return {
             date: row[headers.indexOf("Date")] || "",
-            platform: row[headers.indexOf("Plataforma")] || "Outros",
+            platform: row[headers.indexOf("Veículo")] || "Outros",
             campaignName: row[headers.indexOf("Campaign name")] || "",
             impressions: parseInteger(row[headers.indexOf("Impressions")]),
-            cost: parseNumber(row[headers.indexOf("Cost")]),
+            cost: parseNumber(row[headers.indexOf("Total spent")]),
             reach: parseInteger(row[headers.indexOf("Reach")]),
-            clicks: parseInteger(row[headers.indexOf("Link clicks")]),
+            clicks: parseInteger(row[headers.indexOf("Clicks")]),
             frequency: parseNumber(row[headers.indexOf("Frequency")]) || 1,
-            // CPM calculado corretamente
             cpm: parseNumber(row[headers.indexOf("CPM")]),
-          } as ProcessedData // Adicionando type assertion para garantir o tipo
+          } as ProcessedData
         })
-        .filter((item: ProcessedData) => item.date && item.impressions > 0) // Especificando o tipo aqui
+        .filter((item: ProcessedData) => item.date && item.impressions > 0)
 
       setProcessedData(processed)
 
       // Definir range de datas inicial
       if (processed.length > 0) {
-        const dates = processed.map((item) => new Date(item.date)).sort((a, b) => a.getTime() - b.getTime())
-        const startDate = dates[0].toISOString().split("T")[0]
-        const endDate = dates[dates.length - 1].toISOString().split("T")[0]
-        setDateRange({ start: startDate, end: endDate })
+        const validDates = processed
+          .map((item) => convertBrazilianDate(item.date))
+          .filter(Boolean)
+          .sort()
+
+        if (validDates.length > 0) {
+          setDateRange({
+            start: validDates[0],
+            end: validDates[validDates.length - 1],
+          })
+        }
       }
     }
   }, [apiData])
@@ -104,13 +135,18 @@ const VisaoGeral: React.FC = () => {
   const filteredData = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return processedData
 
-    return processedData.filter((item) => {
-      const itemDate = new Date(item.date)
-      const startDate = new Date(dateRange.start)
-      const endDate = new Date(dateRange.end)
-      return itemDate >= startDate && itemDate <= endDate
-    })
-  }, [processedData, dateRange])
+    return processedData
+      .filter((item) => {
+        const itemDateISO = convertBrazilianDate(item.date)
+        if (!itemDateISO) return false
+
+        const itemDate = new Date(itemDateISO)
+        const startDate = new Date(dateRange.start)
+        const endDate = new Date(dateRange.end)
+        return itemDate >= startDate && itemDate <= endDate
+      })
+      .filter((item) => selectedPlatforms.length === 0 || selectedPlatforms.includes(item.platform))
+  }, [processedData, dateRange, selectedPlatforms])
 
   // Calcular métricas por plataforma
   const platformMetrics = useMemo(() => {
@@ -141,7 +177,7 @@ const VisaoGeral: React.FC = () => {
       const platformData = filteredData.filter((item) => item.platform === metric.platform)
       if (platformData.length > 0) {
         metric.cpm = metric.cost / (metric.impressions / 1000)
-        metric.frequency = metric.impressions / (metric.reach || 1)
+        metric.frequency = metric.reach > 0 ? metric.impressions / metric.reach : 0
       }
     })
 
@@ -150,19 +186,22 @@ const VisaoGeral: React.FC = () => {
 
   // Calcular totais
   const totals = useMemo(() => {
+    const investment = filteredData.reduce((sum, item) => sum + item.cost, 0)
+    const impressions = filteredData.reduce((sum, item) => sum + item.impressions, 0)
+    const reach = Math.max(...filteredData.map((item) => item.reach), 0)
+    const clicks = filteredData.reduce((sum, item) => sum + item.clicks, 0)
+    const frequency = filteredData.length > 0 && reach > 0 ? impressions / reach : 0
+    const cpm = impressions > 0 ? investment / (impressions / 1000) : 0
+
     return {
-      investment: filteredData.reduce((sum, item) => sum + item.cost, 0),
-      impressions: filteredData.reduce((sum, item) => sum + item.impressions, 0),
-      reach: Math.max(...filteredData.map((item) => item.reach), 0),
-      clicks: filteredData.reduce((sum, item) => sum + item.clicks, 0),
-      frequency:
-        filteredData.length > 0 ? filteredData.reduce((sum, item) => sum + item.frequency, 0) / filteredData.length : 0,
-      cpm: 0,
+      investment,
+      impressions,
+      reach,
+      clicks,
+      frequency,
+      cpm,
     }
   }, [filteredData])
-
-  // Calcular CPM total
-  totals.cpm = totals.impressions > 0 ? totals.investment / (totals.impressions / 1000) : 0
 
   // Preparar dados para gráficos
   const impressionsChartData: ChartDataPoint[] = platformMetrics.map((metric) => ({
@@ -304,38 +343,58 @@ const VisaoGeral: React.FC = () => {
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {availablePlatforms.map((platform) => (
+            <button
+              key={platform}
+              onClick={() => togglePlatform(platform)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                selectedPlatforms.includes(platform)
+                  ? "bg-blue-100 text-blue-800 border border-blue-300"
+                  : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+              }`}
+              style={{
+                backgroundColor: selectedPlatforms.includes(platform) ? platformColors[platform] + "20" : undefined,
+                borderColor: selectedPlatforms.includes(platform) ? platformColors[platform] : undefined,
+                color: selectedPlatforms.includes(platform) ? platformColors[platform] : undefined,
+              }}
+            >
+              {platform}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Métricas Principais */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
-          <div className="text-sm text-gray-600 mb-1">Investimento</div>
-          <div className="text-lg font-bold text-green-600">{formatCurrency(totals.investment / 1000000)} mi</div>
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[80px] flex flex-col justify-center">
+          <div className="text-sm text-gray-600 mb-1">Investimento Total</div>
+          <div className="text-xl font-bold text-green-600">R$ {formatNumber(totals.investment)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[80px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Impressões</div>
-          <div className="text-lg font-bold text-blue-600">{formatNumber(totals.impressions)}</div>
+          <div className="text-xl font-bold text-blue-600">{formatNumber(totals.impressions)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[80px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">CPM</div>
-          <div className="text-lg font-bold text-purple-600">R$ {totals.cpm.toFixed(2)}</div>
+          <div className="text-xl font-bold text-purple-600">R$ {totals.cpm.toFixed(2)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[80px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Alcance</div>
-          <div className="text-lg font-bold text-orange-600">{formatNumber(totals.reach)}</div>
+          <div className="text-xl font-bold text-orange-600">{formatNumber(totals.reach)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[80px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Frequência</div>
-          <div className="text-lg font-bold text-red-600">{totals.frequency.toFixed(2)}</div>
+          <div className="text-xl font-bold text-red-600">{totals.frequency.toFixed(2)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[80px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Cliques</div>
-          <div className="text-lg font-bold text-teal-600">{formatNumber(totals.clicks)}</div>
+          <div className="text-xl font-bold text-teal-600">{formatNumber(totals.clicks)}</div>
         </div>
       </div>
 

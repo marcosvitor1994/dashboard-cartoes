@@ -22,7 +22,40 @@ api.interceptors.response.use(
   },
 )
 
-// Função para buscar dados do CCBB
+// Função para buscar dados consolidados dos cartões
+export const fetchConsolidadoData = async () => {
+  try {
+    const response = await api.get("/cartao/consolidado")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados consolidados:", error)
+    throw error
+  }
+}
+
+// Função para buscar dados do resumo dos cartões
+export const fetchResumoData = async () => {
+  try {
+    const response = await api.get("/cartao/resumo")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do resumo:", error)
+    throw error
+  }
+}
+
+// Função para buscar dados do GA4 resumo
+export const fetchGA4ResumoData = async () => {
+  try {
+    const response = await api.get("/cartao/ga4-resumo")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do GA4 resumo:", error)
+    throw error
+  }
+}
+
+// Função para buscar dados do CCBB (manter compatibilidade)
 export const fetchCCBBData = async () => {
   try {
     const response = await api.get("/ccbb")
@@ -55,7 +88,85 @@ export const fetchMetaCCBBData = async () => {
   }
 }
 
-// Hook personalizado para usar os dados da API CCBB
+// Hook personalizado para usar os dados consolidados
+export const useConsolidadoData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchConsolidadoData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados do resumo
+export const useResumoData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchResumoData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados do GA4 resumo
+export const useGA4ResumoData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchGA4ResumoData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// Hook personalizado para usar os dados da API CCBB (manter compatibilidade)
 export const useCCBBData = () => {
   const [data, setData] = React.useState<any>(null)
   const [loading, setLoading] = React.useState(true)

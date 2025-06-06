@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Play, Calendar, Filter } from "lucide-react"
-import { useCCBBData } from "../../services/api"
+import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface ProcessedData {
@@ -17,7 +17,11 @@ interface ProcessedData {
   frequency: number
   cpm: number
   linkClicks: number
-  visualizacoes100: number
+  videoViews: number
+  videoViews25: number
+  videoViews50: number
+  videoViews75: number
+  videoCompletions: number
   cpv: number
   cpvc: number
   vtr100: number
@@ -32,7 +36,11 @@ interface PlatformMetrics {
   cpm: number
   frequency: number
   linkClicks: number
-  visualizacoes100: number
+  videoViews: number
+  videoViews25: number
+  videoViews50: number
+  videoViews75: number
+  videoCompletions: number
   cpv: number
   cpvc: number
   vtr100: number
@@ -43,7 +51,7 @@ interface PlatformMetrics {
 }
 
 const Visualizacoes: React.FC = () => {
-  const { data: apiData, loading, error } = useCCBBData()
+  const { data: apiData, loading, error } = useConsolidadoData()
   const [processedData, setProcessedData] = useState<ProcessedData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
@@ -62,7 +70,15 @@ const Visualizacoes: React.FC = () => {
     Band: "#e17055", // Laranja
     "Catraca Livre": "#00b894", // Verde
     "Globo.com": "#00a085", // Verde escuro
+    Pinterest: "#bd081c", // Vermelho Pinterest
     Default: "#6c5ce7",
+  }
+
+  // Função para converter data brasileira DD/MM/YYYY para formato ISO YYYY-MM-DD
+  const convertBrazilianDate = (dateStr: string): string => {
+    if (!dateStr) return ""
+    const [day, month, year] = dateStr.split("/")
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
   }
 
   // Processar dados da API
@@ -88,54 +104,56 @@ const Visualizacoes: React.FC = () => {
             return Number.parseFloat(value.replace("%", "").replace(",", ".")) || 0
           }
 
+          const impressions = parseInteger(row[headers.indexOf("Impressions")])
+          const videoViews = parseInteger(row[headers.indexOf("Video views ")])
+          const videoCompletions = parseInteger(row[headers.indexOf("Video completions ")])
+
           return {
             date: row[headers.indexOf("Date")] || "",
-            platform: row[headers.indexOf("Plataforma")] || "Outros",
+            platform: row[headers.indexOf("Veículo")] || "Outros",
             campaignName: row[headers.indexOf("Campaign name")] || "",
-            impressions: parseInteger(row[headers.indexOf("Impressions")]),
-            cost: parseNumber(row[headers.indexOf("Cost")]),
+            impressions: impressions,
+            cost: parseNumber(row[headers.indexOf("Total spent")]),
             reach: parseInteger(row[headers.indexOf("Reach")]),
             clicks: parseInteger(row[headers.indexOf("Clicks")]),
             frequency: parseNumber(row[headers.indexOf("Frequency")]) || 1,
             cpm: parseNumber(row[headers.indexOf("CPM")]),
             linkClicks: parseInteger(row[headers.indexOf("Link clicks")]),
-            visualizacoes100:
-              parseInteger(row[headers.indexOf("Visualizações 100%")]) ||
-              parseInteger(row[headers.indexOf("Video views")]) ||
-              Math.floor(parseInteger(row[headers.indexOf("Impressions")]) * 0.3),
+            videoViews: videoViews,
+            videoViews25: parseInteger(row[headers.indexOf("Video views at 25%")]),
+            videoViews50: parseInteger(row[headers.indexOf("Video views at 50%")]),
+            videoViews75: parseInteger(row[headers.indexOf("Video views at 75%")]),
+            videoCompletions: parseInteger(row[headers.indexOf("Video completions ")]),
             cpv:
               parseNumber(row[headers.indexOf("CPV")]) ||
-              parseNumber(row[headers.indexOf("Cost")]) /
-                Math.max(
-                  parseInteger(row[headers.indexOf("Video views")]) ||
-                    parseInteger(row[headers.indexOf("Visualizações 100%")]) ||
-                    1,
-                  1,
-                ),
+              (videoViews > 0 ? parseNumber(row[headers.indexOf("Total spent")]) / videoViews : 0),
             cpvc: parseNumber(row[headers.indexOf("CPVc")]) || parseNumber(row[headers.indexOf("CPV")]) * 0.8,
-            vtr100:
-              parsePercentage(row[headers.indexOf("VTR 100%")]) ||
-              (parseInteger(row[headers.indexOf("Video views")]) /
-                Math.max(parseInteger(row[headers.indexOf("Impressions")]), 1)) *
-                100,
+            vtr100: impressions > 0 && videoCompletions > 0 ? (videoCompletions / impressions) * 100 : 0,
           } as ProcessedData
         })
-        .filter((item: ProcessedData) => item.date && item.impressions > 0)
+        .filter((item: ProcessedData) => item.date && item.impressions > 0 && item.videoViews > 0) // Filtrar apenas itens com video views
 
       setProcessedData(processed)
 
       // Definir range de datas inicial
       if (processed.length > 0) {
-        const dates = processed.map((item) => new Date(item.date)).sort((a, b) => a.getTime() - b.getTime())
-        const startDate = dates[0].toISOString().split("T")[0]
-        const endDate = dates[dates.length - 1].toISOString().split("T")[0]
-        setDateRange({ start: startDate, end: endDate })
+        const validDates = processed
+          .map((item) => convertBrazilianDate(item.date))
+          .filter(Boolean)
+          .sort()
+
+        if (validDates.length > 0) {
+          setDateRange({
+            start: validDates[0],
+            end: validDates[validDates.length - 1],
+          })
+        }
       }
 
-      // Extrair plataformas únicas
+      // Extrair plataformas únicas (apenas as que têm video views)
       const platformSet = new Set<string>()
       processed.forEach((item) => {
-        if (item.platform) {
+        if (item.platform && item.videoViews > 0) {
           platformSet.add(item.platform)
         }
       })
@@ -152,7 +170,10 @@ const Visualizacoes: React.FC = () => {
     // Filtro por data
     if (dateRange.start && dateRange.end) {
       filtered = filtered.filter((item) => {
-        const itemDate = new Date(item.date)
+        const itemDateISO = convertBrazilianDate(item.date)
+        if (!itemDateISO) return false
+
+        const itemDate = new Date(itemDateISO)
         const startDate = new Date(dateRange.start)
         const endDate = new Date(dateRange.end)
         return itemDate >= startDate && itemDate <= endDate
@@ -182,7 +203,11 @@ const Visualizacoes: React.FC = () => {
           cpm: 0,
           frequency: 0,
           linkClicks: 0,
-          visualizacoes100: 0,
+          videoViews: 0,
+          videoViews25: 0,
+          videoViews50: 0,
+          videoViews75: 0,
+          videoCompletions: 0,
           cpv: 0,
           cpvc: 0,
           vtr100: 0,
@@ -198,26 +223,28 @@ const Visualizacoes: React.FC = () => {
       metrics[item.platform].reach += item.reach
       metrics[item.platform].clicks += item.clicks
       metrics[item.platform].linkClicks += item.linkClicks
-      metrics[item.platform].visualizacoes100 += item.visualizacoes100
+      metrics[item.platform].videoViews += item.videoViews
+      metrics[item.platform].videoViews25 += item.videoViews25
+      metrics[item.platform].videoViews50 += item.videoViews50
+      metrics[item.platform].videoViews75 += item.videoViews75
+      metrics[item.platform].videoCompletions += item.videoCompletions
     })
 
     // Calcular médias e percentuais
     const totalCost = Object.values(metrics).reduce((sum, metric) => sum + metric.cost, 0)
-    const totalVisualizacoes = Object.values(metrics).reduce((sum, metric) => sum + metric.visualizacoes100, 0)
+    const totalVisualizacoes = Object.values(metrics).reduce((sum, metric) => sum + metric.videoViews, 0)
     const maxVtr = Math.max(...Object.values(metrics).map((m) => m.vtr100))
 
     Object.values(metrics).forEach((metric) => {
       const platformData = filteredData.filter((item) => item.platform === metric.platform)
       if (platformData.length > 0) {
         metric.cpm = metric.cost / (metric.impressions / 1000)
-        metric.frequency = metric.impressions / (metric.reach || 1)
-        metric.cpv = metric.visualizacoes100 > 0 ? metric.cost / metric.visualizacoes100 : 0
+        metric.frequency = metric.reach > 0 ? metric.impressions / metric.reach : 0
+        metric.cpv = metric.videoViews > 0 ? metric.cost / metric.videoViews : 0
         metric.cpvc = metric.cpv * 0.8 // Estimativa
-        // Corrigir cálculo do VTR: (Visualizações 100% / Impressões) * 100
-        metric.vtr100 = metric.impressions > 0 ? (metric.visualizacoes100 / metric.impressions) * 100 : 0
+        metric.vtr100 = metric.impressions > 0 ? (metric.videoCompletions / metric.impressions) * 100 : 0
         metric.percentage = totalCost > 0 ? (metric.cost / totalCost) * 100 : 0
-        metric.visualizacoesPercentage =
-          totalVisualizacoes > 0 ? (metric.visualizacoes100 / totalVisualizacoes) * 100 : 0
+        metric.visualizacoesPercentage = totalVisualizacoes > 0 ? (metric.videoViews / totalVisualizacoes) * 100 : 0
         metric.vtrPercentage = maxVtr > 0 ? (metric.vtr100 / maxVtr) * 100 : 0
       }
     })
@@ -229,15 +256,15 @@ const Visualizacoes: React.FC = () => {
   const totals = useMemo(() => {
     const totalInvestment = filteredData.reduce((sum, item) => sum + item.cost, 0)
     const totalImpressions = filteredData.reduce((sum, item) => sum + item.impressions, 0)
-    const totalVisualizacoes100 = filteredData.reduce((sum, item) => sum + item.visualizacoes100, 0)
-    const avgVtr100 = totalImpressions > 0 ? (totalVisualizacoes100 / totalImpressions) * 100 : 0
-    const avgCpv = totalVisualizacoes100 > 0 ? totalInvestment / totalVisualizacoes100 : 0
+    const totalVideoViews = filteredData.reduce((sum, item) => sum + item.videoCompletions, 0)
+    const avgVtr100 = totalImpressions > 0 ? (totalVideoViews / totalImpressions) * 100 : 0
+    const avgCpv = totalVideoViews > 0 ? totalInvestment / totalVideoViews : 0
     const avgCpvc = avgCpv * 0.8
 
     return {
       investment: totalInvestment,
       impressions: totalImpressions,
-      visualizacoes100: totalVisualizacoes100,
+      videoViews: totalVideoViews,
       vtr100: avgVtr100,
       cpv: avgCpv,
       cpvc: avgCpvc,
@@ -276,51 +303,155 @@ const Visualizacoes: React.FC = () => {
     })
   }
 
-  // Componente de gráfico de barras empilhadas horizontal
-  const StackedBarChart: React.FC<{ title: string; data: PlatformMetrics[] }> = ({ title, data }) => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-      <div className="space-y-2">
-        <div className="flex text-xs text-gray-600 justify-between">
-          <span>0%</span>
-          <span>10%</span>
-          <span>20%</span>
-          <span>30%</span>
-          <span>40%</span>
-          <span>50%</span>
-          <span>60%</span>
-          <span>70%</span>
-          <span>80%</span>
-          <span>90%</span>
-          <span>100%</span>
-        </div>
-        <div className="flex h-8 bg-gray-100 rounded overflow-hidden">
-          {data.map((item, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-center text-xs font-medium text-white"
-              style={{
-                width: `${item.percentage}%`,
-                backgroundColor: item.color,
-                minWidth: item.percentage > 3 ? "auto" : "0",
-              }}
-              title={`${item.platform}: ${item.percentage.toFixed(1)}%`}
-            >
-              {item.percentage > 5 ? item.platform : ""}
+  // Componente de curva de retenção
+  const RetentionCurveChart: React.FC<{ data: PlatformMetrics[] }> = ({ data }) => {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-gray-900">Curva de Retenção por Veículo</h3>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-w-md">
+            <div className="text-sm text-blue-800">
+              <strong>VTR (Video Through Rate):</strong> Percentual de pessoas que assistiram o vídeo completo em
+              relação ao total de impressões.
             </div>
-          ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {data.map((item, index) => (
-            <div key={index} className="flex items-center space-x-1">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }}></div>
-              <span className="text-xs text-gray-600">{item.platform}</span>
-            </div>
-          ))}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {data.map((platform, index) => {
+            // Calcular percentuais de retenção
+            const retention25 = platform.videoViews > 0 ? (platform.videoViews25 / platform.videoViews) * 100 : 0
+            const retention50 = platform.videoViews > 0 ? (platform.videoViews50 / platform.videoViews) * 100 : 0
+            const retention75 = platform.videoViews > 0 ? (platform.videoViews75 / platform.videoViews) * 100 : 0
+            const retention100 = platform.videoViews > 0 ? (platform.videoCompletions / platform.videoViews) * 100 : 0
+
+            const retentionPoints = [
+              { x: 0, y: 100, label: "Início" },
+              { x: 25, y: retention25, label: "25%" },
+              { x: 50, y: retention50, label: "50%" },
+              { x: 75, y: retention75, label: "75%" },
+              { x: 100, y: retention100, label: "100%" },
+            ]
+
+            return (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: platform.color }} />
+                    <h4 className="font-semibold text-gray-900">{platform.platform}</h4>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-600">VTR</div>
+                    <div className="text-lg font-bold" style={{ color: platform.color }}>
+                      {platform.vtr100.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative h-32 bg-gray-50 rounded-lg p-2">
+                  <svg width="100%" height="100%" viewBox="0 0 300 100" className="overflow-visible">
+                    {/* Grid lines */}
+                    {[0, 25, 50, 75, 100].map((value) => (
+                      <g key={value}>
+                        <line
+                          x1={value * 3}
+                          y1={0}
+                          x2={value * 3}
+                          y2={100}
+                          stroke="#e5e7eb"
+                          strokeWidth="1"
+                          strokeDasharray="2,2"
+                        />
+                        <text x={value * 3} y={115} textAnchor="middle" className="text-xs fill-gray-500">
+                          {value}%
+                        </text>
+                      </g>
+                    ))}
+
+                    {/* Y-axis labels */}
+                    {[0, 25, 50, 75, 100].map((value) => (
+                      <text key={value} x={-10} y={100 - value + 3} textAnchor="end" className="text-xs fill-gray-500">
+                        {value}%
+                      </text>
+                    ))}
+
+                    {/* Retention curve */}
+                    <path
+                      d={`M ${retentionPoints
+                        .map((point, i) => `${i === 0 ? "M" : "L"} ${point.x * 3} ${100 - point.y}`)
+                        .join(" ")}`}
+                      fill="none"
+                      stroke={platform.color}
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* Data points */}
+                    {retentionPoints.map((point, i) => (
+                      <g key={i}>
+                        <circle
+                          cx={point.x * 3}
+                          cy={100 - point.y}
+                          r="4"
+                          fill={platform.color}
+                          stroke="white"
+                          strokeWidth="2"
+                        />
+                        <text
+                          x={point.x * 3}
+                          y={100 - point.y - 10}
+                          textAnchor="middle"
+                          className="text-xs font-medium"
+                          fill={platform.color}
+                        >
+                          {point.y.toFixed(0)}%
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  <div>
+                    <span className="font-medium">Total Views:</span> {formatNumber(platform.videoViews)}
+                  </div>
+                  <div>
+                    <span className="font-medium">Completions:</span> {formatNumber(platform.videoCompletions)}
+                  </div>
+                  <div>
+                    <span className="font-medium">CPV:</span> {formatCurrency(platform.cpv)}
+                  </div>
+                  <div>
+                    <span className="font-medium">Investimento:</span> {formatCurrency(platform.cost)}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-900 mb-2">Como interpretar a curva de retenção:</h4>
+          <div className="text-sm text-gray-700 space-y-1">
+            <p>
+              • <strong>Início (0%):</strong> 100% das pessoas que começaram a assistir o vídeo
+            </p>
+            <p>
+              • <strong>25%, 50%, 75%:</strong> Percentual de pessoas que continuaram assistindo até esse ponto
+            </p>
+            <p>
+              • <strong>100%:</strong> Percentual de pessoas que assistiram o vídeo completo
+            </p>
+            <p>
+              • <strong>VTR:</strong> Video Through Rate - percentual de visualizações completas em relação às
+              impressões totais
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // Componente de gráfico de barras verticais
   const VerticalBarChart: React.FC<{
@@ -419,7 +550,7 @@ const Visualizacoes: React.FC = () => {
               Plataforma
             </label>
             <div className="flex flex-wrap gap-2">
-              {availablePlatforms.slice(0, 6).map((platform) => (
+              {availablePlatforms.map((platform) => (
                 <button
                   key={platform}
                   onClick={() => togglePlatform(platform)}
@@ -466,67 +597,35 @@ const Visualizacoes: React.FC = () => {
 
       {/* Métricas Principais */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Investimento total</div>
-          <div className="text-2xl font-bold text-gray-900">{formatNumber(totals.investment)}</div>
+          <div className="text-2xl font-bold text-gray-900">R$ {formatNumber(totals.investment)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">VTR 100%</div>
           <div className="text-2xl font-bold text-gray-900">{totals.vtr100.toFixed(1)}%</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Vis. de vídeo 100%</div>
-          <div className="text-2xl font-bold text-gray-900">{formatNumber(totals.visualizacoes100)}</div>
+          <div className="text-2xl font-bold text-gray-900">{formatNumber(totals.videoViews)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">CPV Médio</div>
           <div className="text-2xl font-bold text-gray-900">{formatCurrency(totals.cpv)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">CPVc Médio</div>
           <div className="text-2xl font-bold text-gray-900">{formatCurrency(totals.cpvc)}</div>
         </div>
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Investimento */}
-        <div className="card-overlay rounded-lg shadow-lg p-6">
-          <StackedBarChart title="Investimento por Plataforma" data={platformMetrics} />
-        </div>
-
-        {/* Gráfico de VTR 100% */}
-        <div className="card-overlay rounded-lg shadow-lg p-6">
-          <VerticalBarChart
-            title="VTR 100%"
-            data={platformMetrics}
-            getValue={(item) => item.vtr100}
-            showPercentage={true}
-          />
-        </div>
-
-        {/* Gráfico de Visualizações de Vídeo */}
-        <div className="card-overlay rounded-lg shadow-lg p-6">
-          <VerticalBarChart
-            title="Vis. de vídeo 100%"
-            data={platformMetrics}
-            getValue={(item) => item.visualizacoes100}
-          />
-        </div>
-
-        {/* Gráfico de CPV Médio */}
-        <div className="card-overlay rounded-lg shadow-lg p-6">
-          <VerticalBarChart
-            title="CPV Médio"
-            data={platformMetrics}
-            getValue={(item) => item.cpv}
-            format={formatCurrency}
-          />
-        </div>
+      <div className="card-overlay rounded-lg shadow-lg p-6">
+        <RetentionCurveChart data={platformMetrics} />
       </div>
 
       {/* Tabela Detalhada */}

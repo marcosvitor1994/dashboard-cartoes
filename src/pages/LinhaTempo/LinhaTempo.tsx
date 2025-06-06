@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { ResponsiveLine } from "@nivo/line"
 import { Calendar, Filter, TrendingUp, Play, Info, DollarSign, MousePointer } from "lucide-react"
-import { useCCBBData } from "../../services/api"
+import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 import PDFDownloadButton from "../../components/PDFDownloadButton/PDFDownloadButton"
 import AnaliseSemanal from "./components/AnaliseSemanal"
@@ -12,13 +12,21 @@ import AnaliseSemanal from "./components/AnaliseSemanal"
 interface DataPoint {
   date: string
   campaignName: string
+  creativeTitle: string
   platform: string
-  impressions: number
-  cost: string
   reach: number
-  linkClicks: number
+  impressions: number
   clicks: number
-  visualizacoes: number
+  totalSpent: number
+  videoViews: number
+  videoViews25: number
+  videoViews50: number
+  videoViews75: number
+  videoCompletions: number
+  videoStarts: number
+  totalEngagements: number
+  veiculo: string
+  tipoCompra: string
 }
 
 interface ChartData {
@@ -37,27 +45,27 @@ interface VehicleEntry {
 
 const LinhaTempo: React.FC = () => {
   const contentRef = useRef<HTMLDivElement>(null)
-  const { data: apiData, loading, error } = useCCBBData()
+  const { data: apiData, loading, error } = useConsolidadoData()
   const [processedData, setProcessedData] = useState<DataPoint[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
   const [availableVehicles, setAvailableVehicles] = useState<string[]>([])
   const [isWeeklyAnalysis, setIsWeeklyAnalysis] = useState(false)
-  const [filteredData, setFilteredData] = useState<DataPoint[]>([]) // Initialize filteredData
+  const [filteredData, setFilteredData] = useState<DataPoint[]>([])
 
-  // Cores para diferentes plataformas
+  // Cores para diferentes plataformas/veículos
   const platformColors: Record<string, string> = {
     TikTok: "#ff0050",
-    Facebook: "#1877f2",
-    Instagram: "#e4405f",
-    YouTube: "#ff0000",
-    Google: "#4285f4",
     LinkedIn: "#0077b5",
-    Twitter: "#1da1f2",
-    "Catraca Livre": "#3498db",
-    Spotify: "#1DB954",
-    Netflix: "#E50914",
     Meta: "#0668E1",
+    Spotify: "#1DB954",
+    Band: "#ffd700",
+    "Brasil 247": "#ff4500",
+    GDN: "#4285f4",
+    "Demand-Gen": "#34a853",
+    "Portal Forum": "#8b4513",
+    YouTube: "#ff0000",
+    Pinterest: "#bd081c",
     Default: "#6366f1",
   }
 
@@ -67,93 +75,171 @@ const LinhaTempo: React.FC = () => {
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
 
+      console.log("Headers:", headers)
+      console.log("Sample rows:", rows.slice(0, 3))
+
       const processed: DataPoint[] = rows
         .map((row: any[]) => {
-          const dateIndex = headers.indexOf("Date")
-          const campaignIndex = headers.indexOf("Campaign name")
-          const platformIndex = headers.indexOf("Plataforma")
-          const impressionsIndex = headers.indexOf("Impressions")
-          const costIndex = headers.indexOf("Cost")
-          const reachIndex = headers.indexOf("Reach")
-          const linkClicksIndex = headers.indexOf("Link clicks")
-          const clicksIndex = headers.indexOf("Link clicks")
-          const visualizacoesIndex = headers.indexOf("Visualizacoes")
-
-          if (
-            dateIndex !== -1 &&
-            campaignIndex !== -1 &&
-            platformIndex !== -1 &&
-            impressionsIndex !== -1 &&
-            row[dateIndex] &&
-            row[impressionsIndex]
-          ) {
-            return {
-              date: row[dateIndex],
-              campaignName: row[campaignIndex] || "",
-              platform: row[platformIndex] || "Outros",
-              impressions: Number.parseInt(row[impressionsIndex]?.replace(/\./g, "").replace(/,/g, "") || "0"),
-              cost: row[costIndex] || "R$ 0,00",
-              reach: Number.parseInt(row[reachIndex]?.replace(/\./g, "").replace(/,/g, "") || "0"),
-              linkClicks: Number.parseInt(row[linkClicksIndex]?.replace(/\./g, "").replace(/,/g, "") || "0"),
-              clicks: Number.parseInt(row[clicksIndex]?.replace(/\./g, "").replace(/,/g, "") || "0"),
-              visualizacoes: Number.parseInt(row[visualizacoesIndex]?.replace(/\./g, "").replace(/,/g, "") || "0"),
-            }
+          // Função para converter valores monetários (remove R$, pontos, vírgulas)
+          const parseNumber = (value: string | number) => {
+            if (!value || value === "" || value === null || value === undefined) return 0
+            const stringValue = value.toString()
+            // Remove R$, espaços, pontos (milhares) e converte vírgula para ponto decimal
+            const cleanValue = stringValue
+              .replace(/R\$\s*/g, "")
+              .replace(/\./g, "")
+              .replace(",", ".")
+              .trim()
+            const parsed = Number.parseFloat(cleanValue)
+            return isNaN(parsed) ? 0 : parsed
           }
-          return null
+
+          // Função para converter números inteiros (impressões, cliques, etc.)
+          const parseInteger = (value: string | number) => {
+            if (!value || value === "" || value === null || value === undefined) return 0
+            const stringValue = value.toString()
+            // Remove pontos (separadores de milhares) mas mantém o número inteiro
+            const cleanValue = stringValue.replace(/\./g, "").trim()
+            const parsed = Number.parseInt(cleanValue)
+            return isNaN(parsed) ? 0 : parsed
+          }
+
+          // Função para converter data do formato DD/MM/YYYY para YYYY-MM-DD
+          const parseDate = (dateStr: string) => {
+            if (!dateStr) return ""
+            const parts = dateStr.split("/")
+            if (parts.length !== 3) return ""
+            const [day, month, year] = parts
+            return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+          }
+
+          // Mapear os índices baseados nos headers
+          const dateIndex = headers.indexOf("Date")
+          const campaignNameIndex = headers.indexOf("Campaign name")
+          const creativeTitleIndex = headers.indexOf("Creative title")
+          const reachIndex = headers.indexOf("Reach")
+          const impressionsIndex = headers.indexOf("Impressions")
+          const clicksIndex = headers.indexOf("Clicks")
+          const totalSpentIndex = headers.indexOf("Total spent")
+          const videoViewsIndex = headers.indexOf("Video views ")
+          const videoViews25Index = headers.indexOf("Video views at 25%")
+          const videoViews50Index = headers.indexOf("Video views at 50%")
+          const videoViews75Index = headers.indexOf("Video views at 75%")
+          const videoCompletionsIndex = headers.indexOf("Video completions ")
+          const videoStartsIndex = headers.indexOf("Video starts")
+          const totalEngagementsIndex = headers.indexOf("Total engagements")
+          const veiculoIndex = headers.indexOf("Veículo")
+          const tipoCompraIndex = headers.indexOf("Tipo de Compra")
+
+          // Verificar se a linha tem dados válidos
+          if (dateIndex === -1 || !row[dateIndex] || row[dateIndex] === "") {
+            return null
+          }
+
+          // Verificar se pelo menos impressões ou investimento existem
+          const hasImpressions = row[impressionsIndex] && row[impressionsIndex] !== ""
+          const hasSpent = row[totalSpentIndex] && row[totalSpentIndex] !== ""
+
+          if (!hasImpressions && !hasSpent) {
+            return null
+          }
+
+          const originalDate = row[dateIndex]
+          const formattedDate = parseDate(originalDate)
+
+          const dataPoint: DataPoint = {
+            date: formattedDate, // Usar data formatada para ISO
+            campaignName: row[campaignNameIndex] || "",
+            creativeTitle: row[creativeTitleIndex] || "",
+            platform: row[veiculoIndex] || "Outros",
+            reach: parseInteger(row[reachIndex]),
+            impressions: parseInteger(row[impressionsIndex]),
+            clicks: parseInteger(row[clicksIndex]),
+            totalSpent: parseNumber(row[totalSpentIndex]),
+            videoViews: parseInteger(row[videoViewsIndex]),
+            videoViews25: parseInteger(row[videoViews25Index]),
+            videoViews50: parseInteger(row[videoViews50Index]),
+            videoViews75: parseInteger(row[videoViews75Index]),
+            videoCompletions: parseInteger(row[videoCompletionsIndex]),
+            videoStarts: parseInteger(row[videoStartsIndex]),
+            totalEngagements: parseInteger(row[totalEngagementsIndex]),
+            veiculo: row[veiculoIndex] || "Outros",
+            tipoCompra: row[tipoCompraIndex] || "",
+          }
+
+          return dataPoint
         })
         .filter(Boolean) as DataPoint[]
+
+      console.log("Processed data sample:", processed.slice(0, 3))
+      console.log("Total processed items:", processed.length)
 
       // Ordenar por data
       processed.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
       setProcessedData(processed)
 
-      // Configurar range de datas
+      // Configurar range de datas automaticamente
       if (processed.length > 0) {
-        const firstDate = processed[0].date
-        const lastDate = processed[processed.length - 1].date
-        setDateRange({ start: firstDate, end: lastDate })
+        const dates = processed
+          .map((item) => item.date)
+          .filter((date) => date && date.match(/^\d{4}-\d{2}-\d{2}$/))
+          .sort()
+
+        if (dates.length > 0) {
+          const firstDate = dates[0]
+          const lastDate = dates[dates.length - 1]
+
+          console.log("Date range set:", { firstDate, lastDate })
+          setDateRange({ start: firstDate, end: lastDate })
+        }
       }
 
       // Extrair veículos únicos
-      const platformSet = new Set<string>()
+      const vehicleSet = new Set<string>()
       processed.forEach((item) => {
-        if (item.platform) {
-          platformSet.add(item.platform)
+        if (item.platform && item.platform.trim() !== "") {
+          vehicleSet.add(item.platform)
         }
       })
-      const vehicles = Array.from(platformSet).filter(Boolean)
+      const vehicles = Array.from(vehicleSet).filter(Boolean)
+      console.log("Available vehicles:", vehicles)
       setAvailableVehicles(vehicles)
-      setSelectedVehicles([])
+      setSelectedVehicles([]) // Começar sem filtro de veículos
     }
   }, [apiData])
 
   // Filtrar dados baseado nos filtros selecionados
   useEffect(() => {
-    if (processedData) {
-      if (selectedVehicles.length === 0) {
-        setFilteredData(
-          processedData.filter((item) => {
-            const itemDate = new Date(item.date)
-            const startDate = dateRange.start ? new Date(dateRange.start) : new Date(0)
-            const endDate = dateRange.end ? new Date(dateRange.end) : new Date(8640000000000000)
-            return itemDate >= startDate && itemDate <= endDate
-          }),
-        )
-      } else {
-        setFilteredData(
-          processedData.filter((item) => {
-            const itemDate = new Date(item.date)
-            const startDate = dateRange.start ? new Date(dateRange.start) : new Date(0)
-            const endDate = dateRange.end ? new Date(dateRange.end) : new Date(8640000000000000)
+    console.log("Filtering data with:", {
+      processedDataLength: processedData.length,
+      dateRange,
+      selectedVehicles,
+    })
 
-            const isInDateRange = itemDate >= startDate && itemDate <= endDate
-            const isVehicleSelected = selectedVehicles.includes(item.platform)
+    if (processedData.length > 0) {
+      let filtered = processedData
 
-            return isInDateRange && isVehicleSelected
-          }),
-        )
+      // Aplicar filtro de data se especificado
+      if (dateRange.start && dateRange.end) {
+        filtered = filtered.filter((item) => {
+          const itemDate = new Date(item.date)
+          const startDate = new Date(dateRange.start)
+          const endDate = new Date(dateRange.end)
+          return itemDate >= startDate && itemDate <= endDate
+        })
       }
+
+      // Aplicar filtro de veículos se especificado
+      if (selectedVehicles.length > 0) {
+        filtered = filtered.filter((item) => selectedVehicles.includes(item.platform))
+      }
+
+      console.log("Filtered data length:", filtered.length)
+      console.log("Filtered data sample:", filtered.slice(0, 2))
+      setFilteredData(filtered)
+    } else {
+      setFilteredData([])
     }
   }, [processedData, dateRange, selectedVehicles])
 
@@ -209,17 +295,11 @@ const LinhaTempo: React.FC = () => {
 
   // Calcular estatísticas
   const totalInvestment = useMemo(() => {
-    let total = 0
-    filteredData.forEach((item) => {
-      const costString = item.cost.replace("R$", "").replace(".", "").replace(",", ".").trim()
-      const cost = Number.parseFloat(costString) || 0
-      total += cost
-    })
-    return total
+    return filteredData.reduce((sum, item) => sum + item.totalSpent, 0)
   }, [filteredData])
 
   const totalImpressions = filteredData.reduce((sum, item) => sum + item.impressions, 0)
-  const totalClicks = filteredData.reduce((sum, item) => sum + (item.clicks || item.linkClicks || 0), 0)
+  const totalClicks = filteredData.reduce((sum, item) => sum + item.clicks, 0)
 
   // Função para formatar valor monetário
   const formatCurrency = (value: number): string => {
@@ -227,6 +307,17 @@ const LinhaTempo: React.FC = () => {
       style: "currency",
       currency: "BRL",
     })
+  }
+
+  // Função para formatar números
+  const formatNumber = (value: number): string => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`
+    }
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`
+    }
+    return value.toLocaleString("pt-BR")
   }
 
   // Função para alternar seleção de veículo
@@ -255,7 +346,7 @@ const LinhaTempo: React.FC = () => {
   // Se estiver no modo análise semanal, renderizar o componente separado
   if (isWeeklyAnalysis) {
     return (
-      <div className="space-y-4">        
+      <div className="space-y-4">
         <AnaliseSemanal
           processedData={processedData}
           availableVehicles={availableVehicles}
@@ -362,7 +453,7 @@ const LinhaTempo: React.FC = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Total de Impressões</p>
-              <p className="text-xl font-bold text-gray-900">{totalImpressions.toLocaleString("pt-BR")}</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(totalImpressions)}</p>
             </div>
           </div>
         </div>
@@ -374,7 +465,7 @@ const LinhaTempo: React.FC = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Total de Cliques</p>
-              <p className="text-xl font-bold text-gray-900">{totalClicks.toLocaleString("pt-BR")}</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(totalClicks)}</p>
             </div>
           </div>
         </div>
@@ -410,7 +501,7 @@ const LinhaTempo: React.FC = () => {
                   legend: "Impressões",
                   legendOffset: -85,
                   legendPosition: "middle",
-                  format: (value) => value.toLocaleString("pt-BR"),
+                  format: (value) => formatNumber(value),
                 }}
                 pointSize={8}
                 pointColor={{ theme: "background" }}
@@ -454,7 +545,7 @@ const LinhaTempo: React.FC = () => {
                       Data: {new Date(point.data.x as string).toLocaleDateString("pt-BR")}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {point.seriesId}: {(point.data.y as number).toLocaleString("pt-BR")}
+                      {point.seriesId}: {formatNumber(point.data.y as number)}
                     </div>
                   </div>
                 )}

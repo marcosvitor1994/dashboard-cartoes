@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { ResponsiveLine } from "@nivo/line"
 import {
   Calendar,
@@ -14,20 +14,28 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  ArrowLeft,
+  Info,
 } from "lucide-react"
 import PDFDownloadButton from "../../../components/PDFDownloadButton/PDFDownloadButton"
 
 interface DataPoint {
   date: string
   campaignName: string
+  creativeTitle: string
   platform: string
-  impressions: number
-  cost: string
   reach: number
-  linkClicks: number
+  impressions: number
   clicks: number
-  visualizacoes: number
+  totalSpent: number
+  videoViews: number
+  videoViews25: number
+  videoViews50: number
+  videoViews75: number
+  videoCompletions: number
+  videoStarts: number
+  totalEngagements: number
+  veiculo: string
+  tipoCompra: string
 }
 
 interface ChartData {
@@ -70,11 +78,15 @@ interface AnaliseSemanalProps {
   processedData: DataPoint[]
   availableVehicles: string[]
   platformColors: Record<string, string>
-  onBack: () => void  // ADICIONE ESTA LINHA
-
+  onBack: () => void
 }
 
-const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availableVehicles, platformColors, onBack }) => {
+const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({
+  processedData,
+  availableVehicles,
+  platformColors,
+  onBack,
+}) => {
   const contentRef = useRef<HTMLDivElement>(null)
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
@@ -82,68 +94,74 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
     "impressions" | "clicks" | "views" | "cpm" | "cpc" | "cpv" | "ctr" | "vtr"
   >("impressions")
 
+  // Configurar automaticamente os últimos 7 dias
+  useEffect(() => {
+    if (processedData.length > 0) {
+      // Obter todas as datas únicas e ordenar
+      const allDates = Array.from(new Set(processedData.map((item) => item.date)))
+        .filter((date) => date && date.match(/^\d{4}-\d{2}-\d{2}$/))
+        .sort()
+
+      if (allDates.length > 0) {
+        const lastDate = allDates[allDates.length - 1]
+        const lastDateObj = new Date(lastDate)
+
+        // Calcular 7 dias antes da última data
+        const firstDateObj = new Date(lastDateObj)
+        firstDateObj.setDate(lastDateObj.getDate() - 6)
+
+        const firstDate = firstDateObj.toISOString().split("T")[0]
+
+        setDateRange({ start: firstDate, end: lastDate })
+      }
+    }
+  }, [processedData])
+
   // Função para obter dados baseado no período selecionado
   const getFilteredDataByPeriod = (isCurrentPeriod: boolean): DataPoint[] => {
-    if (dateRange.start && dateRange.end) {
-      const startDate = new Date(dateRange.start);
-      const endDate = new Date(dateRange.end);
+    console.log("getFilteredDataByPeriod called with:", { isCurrentPeriod, dateRange, selectedVehicles })
 
-      // Calcular período anterior com a mesma duração
-      const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      const previousStartDate = new Date(startDate);
-      // Ajustar para o início do período anterior sem subtrair 1 dia manualmente
-      previousStartDate.setDate(startDate.getDate() - periodDuration);
-      const previousEndDate = new Date(previousStartDate);
-      previousEndDate.setDate(previousStartDate.getDate() + periodDuration - 1);
-
-      let targetStartDate: Date;
-      let targetEndDate: Date;
-
-      if (isCurrentPeriod) {
-        // Período atual
-        targetStartDate = startDate;
-        targetEndDate = endDate;
-      } else {
-        // Período anterior
-        targetStartDate = previousStartDate;
-        targetEndDate = previousEndDate;
-      }
-
-      return processedData.filter((item) => {
-        const itemDate = new Date(item.date);
-        const isInDateRange = itemDate >= targetStartDate && itemDate <= targetEndDate;
-        const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform);
-        return isInDateRange && isVehicleSelected;
-      });
-    } else {
-      // Lógica para últimos 7 dias
-      const today = new Date();
-      const endDate = new Date(today);
-      const daysBack = isCurrentPeriod ? 0 : 7;
-      endDate.setDate(today.getDate() - daysBack);
-
-      const startDate = new Date(endDate);
-      startDate.setDate(endDate.getDate() - 6);
-
-      return processedData.filter((item) => {
-        const itemDate = new Date(item.date);
-        const isInDateRange = itemDate >= startDate && itemDate <= endDate;
-        const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform);
-        return isInDateRange && isVehicleSelected;
-      });
+    // Se não há filtro de data, usar últimos 7 dias
+    if (!dateRange.start || !dateRange.end) {
+      return []
     }
-  };
+
+    // Com filtro de data selecionado
+    const startDate = new Date(dateRange.start)
+    const endDate = new Date(dateRange.end)
+
+    // Calcular período anterior com a mesma duração
+    const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const previousStartDate = new Date(startDate)
+    previousStartDate.setDate(startDate.getDate() - periodDuration)
+    const previousEndDate = new Date(previousStartDate)
+    previousEndDate.setDate(previousStartDate.getDate() + periodDuration - 1)
+
+    let targetStartDate: Date
+    let targetEndDate: Date
+
+    if (isCurrentPeriod) {
+      targetStartDate = startDate
+      targetEndDate = endDate
+    } else {
+      targetStartDate = previousStartDate
+      targetEndDate = previousEndDate
+    }
+
+    return processedData.filter((item) => {
+      const itemDate = new Date(item.date)
+      const isInDateRange = itemDate >= targetStartDate && itemDate <= targetEndDate
+      const isVehicleSelected = selectedVehicles.length === 0 || selectedVehicles.includes(item.platform)
+      return isInDateRange && isVehicleSelected
+    })
+  }
 
   // Calcular métricas semanais com tratamento de valores zerados
   const calculateWeeklyMetrics = (data: DataPoint[]): WeeklyMetrics => {
-    const totalInvestment = data.reduce((sum, item) => {
-      const costString = (item.cost || "R$ 0,00").replace("R$", "").replace(/\./g, "").replace(",", ".").trim()
-      return sum + (Number.parseFloat(costString) || 0)
-    }, 0)
-
+    const totalInvestment = data.reduce((sum, item) => sum + (item.totalSpent || 0), 0)
     const totalImpressions = data.reduce((sum, item) => sum + (item.impressions || 0), 0)
-    const totalClicks = data.reduce((sum, item) => sum + (item.linkClicks || 0), 0)
-    const totalViews = data.reduce((sum, item) => sum + (item.visualizacoes || 0), 0)
+    const totalClicks = data.reduce((sum, item) => sum + (item.clicks || 0), 0)
+    const totalViews = data.reduce((sum, item) => sum + (item.videoViews || item.videoCompletions || 0), 0)
 
     const cpm = totalImpressions > 0 ? (totalInvestment / totalImpressions) * 1000 : 0
     const cpc = totalClicks > 0 ? totalInvestment / totalClicks : 0
@@ -202,9 +220,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
       const grouped: Record<string, DataPoint[]> = {}
       data.forEach((item) => {
         const date = new Date(item.date)
-        const dayKey = `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1)
-          .toString()
-          .padStart(2, "0")}`
+        const dayKey = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
         if (!grouped[dayKey]) grouped[dayKey] = []
         grouped[dayKey].push(item)
       })
@@ -217,46 +233,32 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
     const getDayValue = (dayData: DataPoint[], metric: string) => {
       if (!dayData || dayData.length === 0) return 0
 
-      const safeParseFloat = (str: string): number => {
-        const parsed = Number.parseFloat(str)
-        return isNaN(parsed) ? 0 : parsed
-      }
-
       switch (metric) {
         case "impressions":
           return dayData.reduce((sum, item) => sum + (item.impressions || 0), 0)
         case "clicks":
-          return dayData.reduce((sum, item) => sum + (item.clicks || item.linkClicks || 0), 0)
+          return dayData.reduce((sum, item) => sum + (item.clicks || 0), 0)
         case "views":
-          return dayData.reduce((sum, item) => sum + (item.visualizacoes || 0), 0)
+          return dayData.reduce((sum, item) => sum + (item.videoViews || item.videoCompletions || 0), 0)
         case "cpm":
-          const totalCost = dayData.reduce((sum, item) => {
-            const costString = (item.cost || "R$ 0,00").replace("R$", "").replace(/\./g, "").replace(",", ".").trim()
-            return sum + safeParseFloat(costString)
-          }, 0)
+          const totalCost = dayData.reduce((sum, item) => sum + (item.totalSpent || 0), 0)
           const totalImpressions = dayData.reduce((sum, item) => sum + (item.impressions || 0), 0)
           return totalImpressions > 0 ? (totalCost / totalImpressions) * 1000 : 0
         case "cpc":
-          const totalCostCpc = dayData.reduce((sum, item) => {
-            const costString = (item.cost || "R$ 0,00").replace("R$", "").replace(/\./g, "").replace(",", ".").trim()
-            return sum + safeParseFloat(costString)
-          }, 0)
-          const totalClicksCpc = dayData.reduce((sum, item) => sum + (item.clicks || item.linkClicks || 0), 0)
+          const totalCostCpc = dayData.reduce((sum, item) => sum + (item.totalSpent || 0), 0)
+          const totalClicksCpc = dayData.reduce((sum, item) => sum + (item.clicks || 0), 0)
           return totalClicksCpc > 0 ? totalCostCpc / totalClicksCpc : 0
         case "cpv":
-          const totalCostCpv = dayData.reduce((sum, item) => {
-            const costString = (item.cost || "R$ 0,00").replace("R$", "").replace(/\./g, "").replace(",", ".").trim()
-            return sum + safeParseFloat(costString)
-          }, 0)
-          const totalViewsCpv = dayData.reduce((sum, item) => sum + (item.visualizacoes || 0), 0)
+          const totalCostCpv = dayData.reduce((sum, item) => sum + (item.totalSpent || 0), 0)
+          const totalViewsCpv = dayData.reduce((sum, item) => sum + (item.videoViews || item.videoCompletions || 0), 0)
           return totalViewsCpv > 0 ? totalCostCpv / totalViewsCpv : 0
         case "ctr":
           const totalImpressionsCtr = dayData.reduce((sum, item) => sum + (item.impressions || 0), 0)
-          const totalClicksCtr = dayData.reduce((sum, item) => sum + (item.clicks || item.linkClicks || 0), 0)
+          const totalClicksCtr = dayData.reduce((sum, item) => sum + (item.clicks || 0), 0)
           return totalImpressionsCtr > 0 ? (totalClicksCtr / totalImpressionsCtr) * 100 : 0
         case "vtr":
           const totalImpressionsVtr = dayData.reduce((sum, item) => sum + (item.impressions || 0), 0)
-          const totalViewsVtr = dayData.reduce((sum, item) => sum + (item.visualizacoes || 0), 0)
+          const totalViewsVtr = dayData.reduce((sum, item) => sum + (item.videoViews || item.videoCompletions || 0), 0)
           return totalImpressionsVtr > 0 ? (totalViewsVtr / totalImpressionsVtr) * 100 : 0
         default:
           return 0
@@ -364,6 +366,27 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
     return { type: "linear", min: "auto", max: "auto" }
   }
 
+  // Calcular período anterior para exibição
+  const getPreviousPeriodDates = () => {
+    if (!dateRange.start || !dateRange.end) return { start: "", end: "" }
+
+    const startDate = new Date(dateRange.start)
+    const endDate = new Date(dateRange.end)
+    const periodDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+    const previousStartDate = new Date(startDate)
+    previousStartDate.setDate(startDate.getDate() - periodDuration)
+    const previousEndDate = new Date(previousStartDate)
+    previousEndDate.setDate(previousStartDate.getDate() + periodDuration - 1)
+
+    return {
+      start: previousStartDate.toLocaleDateString("pt-BR"),
+      end: previousEndDate.toLocaleDateString("pt-BR"),
+    }
+  }
+
+  const previousPeriod = getPreviousPeriodDates()
+
   return (
     <div ref={contentRef} className="space-y-4 h-full flex flex-col">
       {/* Header */}
@@ -385,6 +408,35 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
         </div>
       </div>
 
+      {/* Indicador de Períodos Comparados */}
+      <div className="card-overlay rounded-lg shadow-lg p-4">
+        <div className="flex items-center justify-center space-x-8">
+          <div className="text-center">
+            <div className="flex items-center space-x-2 text-blue-600 mb-1">
+              <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+              <span className="text-sm font-medium">Período Atual</span>
+            </div>
+            <p className="text-lg font-bold text-gray-900">
+              {dateRange.start &&
+                dateRange.end &&
+                `${new Date(dateRange.start).toLocaleDateString("pt-BR")} - ${new Date(dateRange.end).toLocaleDateString("pt-BR")}`}
+            </p>
+          </div>
+          <div className="text-center">
+            <span className="text-gray-400 text-2xl">vs</span>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center space-x-2 text-orange-600 mb-1">
+              <div className="w-3 h-3 bg-orange-600 rounded-full"></div>
+              <span className="text-sm font-medium">Período Anterior</span>
+            </div>
+            <p className="text-lg font-bold text-gray-900">
+              {previousPeriod.start && previousPeriod.end && `${previousPeriod.start} - ${previousPeriod.end}`}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Filtros */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -392,7 +444,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
               <Calendar className="w-4 h-4 mr-2" />
-              Período
+              Período (Últimos 7 dias por padrão)
             </label>
             <div className="grid grid-cols-2 gap-2">
               <input
@@ -458,10 +510,11 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
           <div>
             <p className="text-sm font-medium text-gray-600">Investimento</p>
             <p className="text-lg font-bold text-gray-900">{formatCurrency(weeklyComparison.current.investment)}</p>
+            <p className="text-sm text-gray-500 mt-1">CPM: {formatCurrency(weeklyComparison.current.cpm)}</p>
           </div>
         </div>
 
-        {/* Card Impressões e CPM */}
+        {/* Card Impressões */}
         <div className="card-overlay rounded-lg shadow-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -479,11 +532,11 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             <p className="text-lg font-bold text-gray-900">
               {weeklyComparison.current.impressions.toLocaleString("pt-BR")}
             </p>
-            <p className="text-xs text-gray-500">CPM: {formatCurrency(weeklyComparison.current.cpm)}</p>
+            <p className="text-sm text-gray-500 mt-1">CTR: {weeklyComparison.current.ctr.toFixed(2)}%</p>
           </div>
         </div>
 
-        {/* Card Cliques, CPC e CTR */}
+        {/* Card Cliques */}
         <div className="card-overlay rounded-lg shadow-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-purple-100 rounded-lg">
@@ -499,13 +552,11 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
           <div>
             <p className="text-sm font-medium text-gray-600">Cliques</p>
             <p className="text-lg font-bold text-gray-900">{weeklyComparison.current.clicks.toLocaleString("pt-BR")}</p>
-            <p className="text-xs text-gray-500">
-              CPC: {formatCurrency(weeklyComparison.current.cpc)} | CTR: {weeklyComparison.current.ctr.toFixed(2)}%
-            </p>
+            <p className="text-sm text-gray-500 mt-1">CPC: {formatCurrency(weeklyComparison.current.cpc)}</p>
           </div>
         </div>
 
-        {/* Card Views, VTR e CPV */}
+        {/* Card Views */}
         <div className="card-overlay rounded-lg shadow-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-orange-100 rounded-lg">
@@ -521,36 +572,60 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
           <div>
             <p className="text-sm font-medium text-gray-600">Views</p>
             <p className="text-lg font-bold text-gray-900">{weeklyComparison.current.views.toLocaleString("pt-BR")}</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm text-gray-500 mt-1">
               VTR: {weeklyComparison.current.vtr.toFixed(2)}% | CPV: {formatCurrency(weeklyComparison.current.cpv)}
             </p>
           </div>
         </div>
 
-        {/* Card Resumo */}
+        {/* Card Resumo Detalhado */}
         <div className="card-overlay rounded-lg shadow-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-indigo-100 rounded-lg">
               <BarChart3 className="w-5 h-5 text-indigo-600" />
             </div>
+            <Info className="w-4 h-4 text-gray-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-600">Resumo</p>
-            <p className="text-xs text-gray-500 mt-1">Comparativo período atual vs. anterior</p>
-            <div className="mt-2 space-y-1">
-              <div className="flex justify-between text-xs">
-                <span>CPM:</span>
-                <span className={getComparisonColor(weeklyComparison.comparison.cpm)}>
-                  {weeklyComparison.comparison.cpm > 0 ? "+" : ""}
-                  {weeklyComparison.comparison.cpm.toFixed(1)}%
-                </span>
+            <p className="text-sm font-medium text-gray-600">Resumo Comparativo</p>
+            <div className="mt-2 space-y-2">
+              <div className="text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">CPM:</span>
+                  <span className={`font-semibold ${getComparisonColor(weeklyComparison.comparison.cpm)}`}>
+                    {weeklyComparison.comparison.cpm > 0 ? "+" : ""}
+                    {weeklyComparison.comparison.cpm.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {formatCurrency(weeklyComparison.current.cpm)} vs {formatCurrency(weeklyComparison.previous.cpm)}
+                </div>
               </div>
-              <div className="flex justify-between text-xs">
-                <span>CPC:</span>
-                <span className={getComparisonColor(weeklyComparison.comparison.cpc)}>
-                  {weeklyComparison.comparison.cpc > 0 ? "+" : ""}
-                  {weeklyComparison.comparison.cpc.toFixed(1)}%
-                </span>
+
+              <div className="text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">CTR:</span>
+                  <span className={`font-semibold ${getComparisonColor(weeklyComparison.comparison.ctr)}`}>
+                    {weeklyComparison.comparison.ctr > 0 ? "+" : ""}
+                    {weeklyComparison.comparison.ctr.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {weeklyComparison.current.ctr.toFixed(2)}% vs {weeklyComparison.previous.ctr.toFixed(2)}%
+                </div>
+              </div>
+
+              <div className="text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">VTR:</span>
+                  <span className={`font-semibold ${getComparisonColor(weeklyComparison.comparison.vtr)}`}>
+                    {weeklyComparison.comparison.vtr > 0 ? "+" : ""}
+                    {weeklyComparison.comparison.vtr.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {weeklyComparison.current.vtr.toFixed(2)}% vs {weeklyComparison.previous.vtr.toFixed(2)}%
+                </div>
               </div>
             </div>
           </div>
@@ -565,7 +640,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
             Comparativo de Períodos - {selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}
           </h3>
           <div className="flex-1" style={{ minHeight: "400px" }}>
-            {weeklyChartData.length > 0 && weeklyChartData.some(series => series.data.length > 0) ? (
+            {weeklyChartData.length > 0 && weeklyChartData.some((series) => series.data.length > 0) ? (
               <ResponsiveLine
                 data={weeklyChartData}
                 margin={{ top: 30, right: 30, bottom: 80, left: 100 }}
@@ -611,26 +686,26 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                 areaOpacity={0.2}
                 defs={[
                   {
-                    id: 'gradientA',
-                    type: 'linearGradient',
+                    id: "gradientA",
+                    type: "linearGradient",
                     colors: [
-                      { offset: 0, color: '#fbbf24', opacity: 0.3 },
-                      { offset: 100, color: '#fbbf24', opacity: 0.1 }
+                      { offset: 0, color: "#fbbf24", opacity: 0.3 },
+                      { offset: 100, color: "#fbbf24", opacity: 0.1 },
                     ],
                   },
                   {
-                    id: 'gradientB',
-                    type: 'linearGradient',
+                    id: "gradientB",
+                    type: "linearGradient",
                     colors: [
-                      { offset: 0, color: '#3b82f6', opacity: 0.3 },
-                      { offset: 100, color: '#3b82f6', opacity: 0.1 }
+                      { offset: 0, color: "#3b82f6", opacity: 0.3 },
+                      { offset: 100, color: "#3b82f6", opacity: 0.1 },
                     ],
                   },
                 ]}
                 fill={[
-                  { match: { id: 'Período Anterior' }, id: 'gradientA' },
-                  { match: { id: 'Período Atual' }, id: 'gradientB' }
-                ]}                
+                  { match: { id: "Período Anterior" }, id: "gradientA" },
+                  { match: { id: "Período Atual" }, id: "gradientB" },
+                ]}
                 legends={[
                   {
                     anchor: "top-right",
@@ -669,8 +744,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
                           : (point.data.y as number).toLocaleString("pt-BR")}
                     </div>
                   </div>
-                  )
-                }
+                )}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
@@ -692,7 +766,6 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
               { key: "clicks", label: "Cliques", icon: MousePointer },
               { key: "views", label: "Visualizações", icon: Eye },
               { key: "cpm", label: "CPM", icon: DollarSign },
-              { key: "cpc", label: "CPC", icon: DollarSign },
               { key: "cpv", label: "CPV", icon: DollarSign },
               { key: "ctr", label: "CTR", icon: BarChart3 },
               { key: "vtr", label: "VTR", icon: BarChart3 },
@@ -719,12 +792,10 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Atual:</span>
                 <span className="font-medium">
-                  {selectedMetric === "impressions" &&
-                    weeklyComparison.current.impressions.toLocaleString("pt-BR")}
+                  {selectedMetric === "impressions" && weeklyComparison.current.impressions.toLocaleString("pt-BR")}
                   {selectedMetric === "clicks" && weeklyComparison.current.clicks.toLocaleString("pt-BR")}
                   {selectedMetric === "views" && weeklyComparison.current.views.toLocaleString("pt-BR")}
                   {selectedMetric === "cpm" && formatCurrency(weeklyComparison.current.cpm)}
-                  {selectedMetric === "cpc" && formatCurrency(weeklyComparison.current.cpc)}
                   {selectedMetric === "cpv" && formatCurrency(weeklyComparison.current.cpv)}
                   {selectedMetric === "ctr" && `${weeklyComparison.current.ctr.toFixed(2)}%`}
                   {selectedMetric === "vtr" && `${weeklyComparison.current.vtr.toFixed(2)}%`}
@@ -733,12 +804,10 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Anterior:</span>
                 <span className="font-medium">
-                  {selectedMetric === "impressions" &&
-                    weeklyComparison.previous.impressions.toLocaleString("pt-BR")}
+                  {selectedMetric === "impressions" && weeklyComparison.previous.impressions.toLocaleString("pt-BR")}
                   {selectedMetric === "clicks" && weeklyComparison.previous.clicks.toLocaleString("pt-BR")}
                   {selectedMetric === "views" && weeklyComparison.previous.views.toLocaleString("pt-BR")}
                   {selectedMetric === "cpm" && formatCurrency(weeklyComparison.previous.cpm)}
-                  {selectedMetric === "cpc" && formatCurrency(weeklyComparison.previous.cpc)}
                   {selectedMetric === "cpv" && formatCurrency(weeklyComparison.previous.cpv)}
                   {selectedMetric === "ctr" && `${weeklyComparison.previous.ctr.toFixed(2)}%`}
                   {selectedMetric === "vtr" && `${weeklyComparison.previous.vtr.toFixed(2)}%`}
@@ -746,11 +815,7 @@ const AnaliseSemanal: React.FC<AnaliseSemanalProps> = ({ processedData, availabl
               </div>
               <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                 <span className="text-gray-600">Variação:</span>
-                <span
-                  className={`font-semibold ${getComparisonColor(
-                    weeklyComparison.comparison[selectedMetric]
-                  )}`}
-                >
+                <span className={`font-semibold ${getComparisonColor(weeklyComparison.comparison[selectedMetric])}`}>
                   {weeklyComparison.comparison[selectedMetric] > 0 ? "+" : ""}
                   {weeklyComparison.comparison[selectedMetric].toFixed(1)}%
                 </span>

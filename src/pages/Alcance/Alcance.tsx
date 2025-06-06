@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Users, Calendar, Filter } from "lucide-react"
-import { useCCBBData } from "../../services/api"
+import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface ProcessedData {
@@ -39,7 +39,7 @@ interface PlatformMetrics {
 }
 
 const Alcance: React.FC = () => {
-  const { data: apiData, loading, error } = useCCBBData()
+  const { data: apiData, loading, error } = useConsolidadoData()
   const [processedData, setProcessedData] = useState<ProcessedData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
@@ -86,30 +86,44 @@ const Alcance: React.FC = () => {
 
           return {
             date: row[headers.indexOf("Date")] || "",
-            platform: row[headers.indexOf("Plataforma")] || "Outros",
+            platform: row[headers.indexOf("Veículo")] || "Outros",
             campaignName: row[headers.indexOf("Campaign name")] || "",
             impressions: parseInteger(row[headers.indexOf("Impressions")]),
-            cost: parseNumber(row[headers.indexOf("Cost")]),
+            cost: parseNumber(row[headers.indexOf("Total spent")]),
             reach: parseInteger(row[headers.indexOf("Reach")]),
             clicks: parseInteger(row[headers.indexOf("Clicks")]),
             frequency: parseNumber(row[headers.indexOf("Frequency")]) || 1,
             cpm: parseNumber(row[headers.indexOf("CPM")]),
             linkClicks: parseInteger(row[headers.indexOf("Link clicks")]),
-            visualizacoes100: parseInteger(row[headers.indexOf("Visualizações 100%")]),
+            visualizacoes100: parseInteger(row[headers.indexOf("Video views")]),
             cpv: parseNumber(row[headers.indexOf("CPV")]),
-            vtr100: parseNumber(row[headers.indexOf("VTR 100%")]),
+            vtr100: parseNumber(row[headers.indexOf("VTR")]),
           } as ProcessedData
         })
         .filter((item: ProcessedData) => item.date && item.impressions > 0)
 
       setProcessedData(processed)
 
+      // Função para converter data brasileira DD/MM/YYYY para formato ISO YYYY-MM-DD
+      const convertBrazilianDate = (dateStr: string): string => {
+        if (!dateStr) return ""
+        const [day, month, year] = dateStr.split("/")
+        return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+      }
+
       // Definir range de datas inicial
       if (processed.length > 0) {
-        const dates = processed.map((item) => new Date(item.date)).sort((a, b) => a.getTime() - b.getTime())
-        const startDate = dates[0].toISOString().split("T")[0]
-        const endDate = dates[dates.length - 1].toISOString().split("T")[0]
-        setDateRange({ start: startDate, end: endDate })
+        const validDates = processed
+          .map((item) => convertBrazilianDate(item.date))
+          .filter(Boolean)
+          .sort()
+
+        if (validDates.length > 0) {
+          setDateRange({
+            start: validDates[0],
+            end: validDates[validDates.length - 1],
+          })
+        }
       }
 
       // Extrair plataformas únicas
@@ -129,10 +143,20 @@ const Alcance: React.FC = () => {
   const filteredData = useMemo(() => {
     let filtered = processedData
 
+    // Função para converter data brasileira DD/MM/YYYY para formato ISO YYYY-MM-DD
+    const convertBrazilianDate = (dateStr: string): string => {
+      if (!dateStr) return ""
+      const [day, month, year] = dateStr.split("/")
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+    }
+
     // Filtro por data
     if (dateRange.start && dateRange.end) {
       filtered = filtered.filter((item) => {
-        const itemDate = new Date(item.date)
+        const itemDateISO = convertBrazilianDate(item.date)
+        if (!itemDateISO) return false
+
+        const itemDate = new Date(itemDateISO)
         const startDate = new Date(dateRange.start)
         const endDate = new Date(dateRange.end)
         return itemDate >= startDate && itemDate <= endDate
@@ -185,9 +209,8 @@ const Alcance: React.FC = () => {
       const platformData = filteredData.filter((item) => item.platform === metric.platform)
       if (platformData.length > 0) {
         metric.cpm = metric.cost / (metric.impressions / 1000)
-        metric.frequency = metric.impressions / (metric.reach || 1)
+        metric.frequency = metric.reach > 0 ? metric.impressions / metric.reach : 0
         metric.cpv = metric.visualizacoes100 > 0 ? metric.cost / metric.visualizacoes100 : 0
-        // Corrigir cálculo do VTR: (Visualizações 100% / Impressões) * 100
         metric.vtr100 = metric.impressions > 0 ? (metric.visualizacoes100 / metric.impressions) * 100 : 0
         metric.percentage = totalReach > 0 ? (metric.reach / totalReach) * 100 : 0
       }
@@ -395,7 +418,7 @@ const Alcance: React.FC = () => {
               Plataforma
             </label>
             <div className="flex flex-wrap gap-2">
-              {availablePlatforms.slice(0, 6).map((platform) => (
+              {availablePlatforms.map((platform) => (
                 <button
                   key={platform}
                   onClick={() => togglePlatform(platform)}
@@ -430,27 +453,27 @@ const Alcance: React.FC = () => {
 
       {/* Métricas Principais */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Investimento total</div>
-          <div className="text-2xl font-bold text-gray-900">{formatNumber(totals.investment)}</div>
+          <div className="text-2xl font-bold text-gray-900">R$ {formatNumber(totals.investment)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Alcance</div>
           <div className="text-2xl font-bold text-gray-900">{formatNumber(totals.reach)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Frequência</div>
           <div className="text-2xl font-bold text-gray-900">{totals.frequency.toFixed(1)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">CPM Médio</div>
           <div className="text-2xl font-bold text-gray-900">{formatCurrency(totals.avgCpm)}</div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
+        <div className="card-overlay rounded-lg shadow-lg p-4 text-center min-h-[100px] flex flex-col justify-center">
           <div className="text-sm text-gray-600 mb-1">Impressões</div>
           <div className="text-2xl font-bold text-gray-900">{formatNumber(totals.impressions)}</div>
         </div>
