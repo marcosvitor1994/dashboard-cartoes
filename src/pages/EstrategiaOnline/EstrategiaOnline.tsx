@@ -400,7 +400,7 @@ const EstrategiaOnline: React.FC = () => {
         {/* Valor Total */}
         <div className="lg:col-span-1 card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-r from-green-50 to-blue-50">
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-600 mb-1">Valor Total da Campanha</p>
+            <p className="text-sm font-medium text-gray-600 mb-1">Investimento Líquido da Campanha</p>
             <p className="text-2xl font-bold text-green-600">
               {formatCurrency(campaignSummary.totalInvestimentoPrevisto)}
             </p>
