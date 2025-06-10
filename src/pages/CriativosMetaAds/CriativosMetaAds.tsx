@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Share2, Calendar, Filter, ExternalLink } from "lucide-react"
+import { Share2, Calendar, Filter } from "lucide-react"
 import { useCartaoMetaData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
@@ -108,42 +108,8 @@ const CriativosMetaAds: React.FC = () => {
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
-      // Agrupar por criativo (mesmo ad name) e somar métricas
-      const groupedData: Record<string, CreativeData> = {}
-      processed.forEach((item) => {
-        const key = `${item.adName}_${item.adCreativeImageUrl}`
-        if (!groupedData[key]) {
-          groupedData[key] = { ...item }
-        } else {
-          groupedData[key].impressions += item.impressions
-          groupedData[key].reach += item.reach
-          groupedData[key].linkClicks += item.linkClicks
-          groupedData[key].cost += item.cost
-          groupedData[key].pageEngagements += item.pageEngagements
-          groupedData[key].postEngagements += item.postEngagements
-          groupedData[key].postReactions += item.postReactions
-          groupedData[key].videoWatches25 += item.videoWatches25
-          groupedData[key].videoWatches50 += item.videoWatches50
-          groupedData[key].videoWatches75 += item.videoWatches75
-          groupedData[key].videoWatches100 += item.videoWatches100
-          groupedData[key].videoPlayActions += item.videoPlayActions
-          groupedData[key].landingPageViews += item.landingPageViews
-        }
-      })
-
-      // Recalcular métricas derivadas
-      const finalData = Object.values(groupedData).map((item) => ({
-        ...item,
-        cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
-        cpc: item.linkClicks > 0 ? item.cost / item.linkClicks : 0,
-        frequency: item.reach > 0 ? item.impressions / item.reach : 0,
-        costPerPostEngagement: item.postEngagements > 0 ? item.cost / item.postEngagements : 0,
-      }))
-
-      // Ordenar por investimento (custo) decrescente
-      finalData.sort((a, b) => b.cost - a.cost)
-
-      setProcessedData(finalData)
+      // NÃO agrupar aqui - manter dados individuais para filtragem correta
+      setProcessedData(processed)
 
       // Definir range de datas inicial
       if (processed.length > 0) {
@@ -164,15 +130,13 @@ const CriativosMetaAds: React.FC = () => {
       setAvailableCampaigns(campaigns)
 
       // Selecionar automaticamente a campanha que contém "CPM" no nome
-      const cpmCampaign = campaigns.find(campaign => 
-        campaign.toUpperCase().includes("CPM")
-      )
-      
+      const cpmCampaign = campaigns.find((campaign) => campaign.toUpperCase().includes("CPM"))
+
       if (cpmCampaign && selectedCampaign === "") {
         setSelectedCampaign(cpmCampaign)
       }
     }
-  }, [apiData, selectedCampaign]) // Adicionei selectedCampaign como dependência
+  }, [apiData, selectedCampaign])
 
   // Filtrar dados
   const filteredData = useMemo(() => {
@@ -193,7 +157,42 @@ const CriativosMetaAds: React.FC = () => {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
-    return filtered
+    // AGORA sim, agrupar por criativo APÓS a filtragem
+    const groupedData: Record<string, CreativeData> = {}
+    filtered.forEach((item) => {
+      const key = `${item.adName}_${item.adCreativeImageUrl}`
+      if (!groupedData[key]) {
+        groupedData[key] = { ...item }
+      } else {
+        groupedData[key].impressions += item.impressions
+        groupedData[key].reach += item.reach
+        groupedData[key].linkClicks += item.linkClicks
+        groupedData[key].cost += item.cost
+        groupedData[key].pageEngagements += item.pageEngagements
+        groupedData[key].postEngagements += item.postEngagements
+        groupedData[key].postReactions += item.postReactions
+        groupedData[key].videoWatches25 += item.videoWatches25
+        groupedData[key].videoWatches50 += item.videoWatches50
+        groupedData[key].videoWatches75 += item.videoWatches75
+        groupedData[key].videoWatches100 += item.videoWatches100
+        groupedData[key].videoPlayActions += item.videoPlayActions
+        groupedData[key].landingPageViews += item.landingPageViews
+      }
+    })
+
+    // Recalcular métricas derivadas
+    const finalData = Object.values(groupedData).map((item) => ({
+      ...item,
+      cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
+      cpc: item.linkClicks > 0 ? item.cost / item.linkClicks : 0,
+      frequency: item.reach > 0 ? item.impressions / item.reach : 0,
+      costPerPostEngagement: item.postEngagements > 0 ? item.cost / item.postEngagements : 0,
+    }))
+
+    // Ordenar por investimento (custo) decrescente
+    finalData.sort((a, b) => b.cost - a.cost)
+
+    return finalData
   }, [processedData, selectedCampaign, dateRange])
 
   // Paginação
@@ -390,24 +389,24 @@ const CriativosMetaAds: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-blue-600 text-white">
-                <th className="text-left py-3 px-4 font-semibold">Imagem</th>
+                <th className="text-left py-3 px-4 font-semibold w-[5rem]">Imagem</th>
                 <th className="text-left py-3 px-4 font-semibold">Criativo</th>
-                <th className="text-right py-3 px-4 font-semibold">Investimento</th>
-                <th className="text-right py-3 px-4 font-semibold">Impressões</th>
-                <th className="text-right py-3 px-4 font-semibold">Alcance</th>
-                <th className="text-right py-3 px-4 font-semibold">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold">CPM</th>
-                <th className="text-right py-3 px-4 font-semibold">CPC</th>
-                <th className="text-right py-3 px-4 font-semibold">CTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CPM</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CPC</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR</th>
               </tr>
             </thead>
             <tbody>
               {paginatedData.map((creative, index) => {
                 const ctr = creative.impressions > 0 ? (creative.linkClicks / creative.impressions) * 100 : 0
-                
+
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 w-[5rem]">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                         {creative.adCreativeImageUrl || creative.adCreativeThumbnailUrl ? (
                           <img
@@ -417,7 +416,10 @@ const CriativosMetaAds: React.FC = () => {
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = "none"
-                              target.parentElement!.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
+                              // Adicionar verificação de segurança para o parentElement
+                              if (target.parentElement) {
+                                target.parentElement.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
+                              }
                             }}
                           />
                         ) : (
@@ -426,18 +428,24 @@ const CriativosMetaAds: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="max-w-xs">
-                        <p className="font-medium text-gray-900 text-sm">{truncateText(creative.adName, 60)}</p>
-                        <p className="text-xs text-gray-500 mt-1">{truncateText(creative.campaignName, 40)}</p>
+                      <div className="">
+                        <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">
+                          {creative.adName}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 leading-tight whitespace-normal break-words">
+                          {creative.campaignName}
+                        </p>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-right font-semibold">{formatCurrency(creative.cost)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.impressions)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.reach)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.linkClicks)}</td>
-                    <td className="py-3 px-4 text-right">{formatCurrency(creative.cpm)}</td>
-                    <td className="py-3 px-4 text-right">{formatCurrency(creative.cpc)}</td>
-                    <td className="py-3 px-4 text-right">{ctr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right font-semibold min-w-[7.5rem]">
+                      {formatCurrency(creative.cost)}
+                    </td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.linkClicks)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatCurrency(creative.cpm)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatCurrency(creative.cpc)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{ctr.toFixed(2)}%</td>
                   </tr>
                 )
               })}

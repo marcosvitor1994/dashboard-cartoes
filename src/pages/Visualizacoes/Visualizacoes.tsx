@@ -90,7 +90,7 @@ const Visualizacoes: React.FC = () => {
 
   // Função para ordenar tipos de compra na ordem correta
   const sortTiposCompra = (tipos: string[]): string[] => {
-    const ordem = ['CPM', 'CPC', 'CPV']
+    const ordem = ["CPM", "CPC", "CPV"]
     return tipos.sort((a, b) => {
       const indexA = ordem.indexOf(a)
       const indexB = ordem.indexOf(b)
@@ -123,11 +123,6 @@ const Visualizacoes: React.FC = () => {
           const parseInteger = (value: string) => {
             if (!value) return 0
             return Number.parseInt(value.replace(/[.\s]/g, "").replace(",", "")) || 0
-          }
-
-          const parsePercentage = (value: string) => {
-            if (!value) return 0
-            return Number.parseFloat(value.replace("%", "").replace(",", ".")) || 0
           }
 
           const impressions = parseInteger(row[headers.indexOf("Impressions")])
@@ -364,7 +359,7 @@ const Visualizacoes: React.FC = () => {
     })
   }
 
-  // Componente de curva de retenção
+  // Componente de curva de retenção (agora gráfico de barras)
   const RetentionCurveChart: React.FC<{ data: PlatformMetrics[] }> = ({ data }) => {
     return (
       <div className="space-y-6">
@@ -386,13 +381,29 @@ const Visualizacoes: React.FC = () => {
             const retention75 = platform.videoViews > 0 ? (platform.videoViews75 / platform.videoViews) * 100 : 0
             const retention100 = platform.videoViews > 0 ? (platform.videoCompletions / platform.videoViews) * 100 : 0
 
-            const retentionPoints = [
-              { x: 0, y: 100, label: "Início" },
-              { x: 25, y: retention25, label: "25%" },
-              { x: 50, y: retention50, label: "50%" },
-              { x: 75, y: retention75, label: "75%" },
-              { x: 100, y: retention100, label: "100%" },
-            ]
+            // Determine if 25%, 50%, 75% data is all zero
+            const hasIntermediateData =
+              platform.videoViews25 > 0 || platform.videoViews50 > 0 || platform.videoViews75 > 0
+
+            const retentionPoints = hasIntermediateData
+              ? [
+                  { x: 0, y: 100, label: "Início" },
+                  { x: 25, y: retention25, label: "25%" },
+                  { x: 50, y: retention50, label: "50%" },
+                  { x: 75, y: retention75, label: "75%" },
+                  { x: 100, y: retention100, label: "100%" },
+                ]
+              : [
+                  { x: 0, y: 100, label: "Início" },
+                  { x: 100, y: retention100, label: "100%" },
+                ]
+
+            const chartWidth = 300
+            const chartHeight = 100
+            const barWidth = hasIntermediateData ? 30 : 60 // Wider bars if only two points
+            const barSpacing = hasIntermediateData ? 20 : 100 // Adjust spacing based on number of bars
+            const totalBarsWidth = retentionPoints.length * barWidth + (retentionPoints.length - 1) * barSpacing
+            const startX = (chartWidth - totalBarsWidth) / 2
 
             return (
               <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
@@ -409,67 +420,62 @@ const Visualizacoes: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="relative h-32 bg-gray-50 rounded-lg p-2">
-                  <svg width="100%" height="100%" viewBox="0 0 300 100" className="overflow-visible">
-                    {/* Grid lines */}
-                    {[0, 25, 50, 75, 100].map((value) => (
-                      <g key={value}>
-                        <line
-                          x1={value * 3}
-                          y1={0}
-                          x2={value * 3}
-                          y2={100}
-                          stroke="#e5e7eb"
-                          strokeWidth="1"
-                          strokeDasharray="2,2"
-                        />
-                        <text x={value * 3} y={115} textAnchor="middle" className="text-xs fill-gray-500">
-                          {value}%
-                        </text>
-                      </g>
-                    ))}
-
+                <div className="relative h-32 bg-gray-50 rounded-lg p-2 flex items-end justify-center">
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                    className="overflow-visible"
+                  >
                     {/* Y-axis labels */}
                     {[0, 25, 50, 75, 100].map((value) => (
-                      <text key={value} x={-10} y={100 - value + 3} textAnchor="end" className="text-xs fill-gray-500">
+                      <text
+                        key={value}
+                        x={-10}
+                        y={chartHeight - value + 3}
+                        textAnchor="end"
+                        className="text-xs fill-gray-500"
+                      >
                         {value}%
                       </text>
                     ))}
 
-                    {/* Retention curve - linha conectando os pontos */}
-                    <path
-                      d={`M ${retentionPoints
-                        .map((point, i) => `${i === 0 ? "M" : "L"} ${point.x * 3} ${100 - point.y}`)
-                        .join(" ")}`}
-                      fill="none"
-                      stroke={platform.color}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* Data points */}
-                    {retentionPoints.map((point, i) => (
-                      <g key={i}>
-                        <circle
-                          cx={point.x * 3}
-                          cy={100 - point.y}
-                          r="4"
-                          fill={platform.color}
-                          stroke="white"
-                          strokeWidth="2"
-                        />
-                        <text
-                          x={point.x * 3}
-                          y={100 - point.y - 10}
-                          textAnchor="middle"
-                          className="text-xs font-medium"
-                          fill={platform.color}
-                        >
-                          {point.y.toFixed(0)}%
-                        </text>
-                      </g>
-                    ))}
+                    {/* Bars */}
+                    {retentionPoints.map((point, i) => {
+                      const barHeight = (point.y / 100) * chartHeight
+                      const xPos = startX + i * (barWidth + barSpacing)
+                      const yPos = chartHeight - barHeight
+                      return (
+                        <g key={i}>
+                          <rect
+                            x={xPos}
+                            y={yPos}
+                            width={barWidth}
+                            height={barHeight}
+                            fill={platform.color}
+                            rx="4"
+                            ry="4"
+                          />
+                          <text
+                            x={xPos + barWidth / 2}
+                            y={yPos - 5}
+                            textAnchor="middle"
+                            className="text-xs font-medium"
+                            fill={platform.color}
+                          >
+                            {point.y.toFixed(2)}%
+                          </text>
+                          <text
+                            x={xPos + barWidth / 2}
+                            y={chartHeight + 15}
+                            textAnchor="middle"
+                            className="text-xs fill-gray-500"
+                          >
+                            {point.label}
+                          </text>
+                        </g>
+                      )
+                    })}
                   </svg>
                 </div>
 
@@ -657,7 +663,9 @@ const Visualizacoes: React.FC = () => {
                       : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
                   }`}
                   style={{
-                    backgroundColor: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] + "20" : undefined,
+                    backgroundColor: selectedTiposCompra.includes(tipoCompra)
+                      ? tipoCompraColors[tipoCompra] + "20"
+                      : undefined,
                     borderColor: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] : undefined,
                     color: selectedTiposCompra.includes(tipoCompra) ? tipoCompraColors[tipoCompra] : undefined,
                   }}
@@ -728,7 +736,7 @@ const Visualizacoes: React.FC = () => {
                   <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
                       {metric.tiposCompra.map((tipo, tipoIndex) => (
-                        <span 
+                        <span
                           key={tipoIndex}
                           className="px-2 py-1 rounded-full text-xs font-medium text-white"
                           style={{ backgroundColor: tipoCompraColors[tipo] || tipoCompraColors.Default }}
@@ -766,13 +774,12 @@ const Visualizacoes: React.FC = () => {
             <Info className="w-5 h-5 text-blue-600 mt-0.5" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-blue-900 mb-1">
-              Informações sobre Métricas de Vídeo
-            </h3>
+            <h3 className="text-sm font-medium text-blue-900 mb-1">Informações sobre Métricas de Vídeo</h3>
             <p className="text-sm text-blue-700">
-              As métricas de <strong>visualizações</strong> e <strong>VTR</strong> são baseadas nos dados fornecidos pelas plataformas. 
-              O <strong>CPV</strong> representa o custo por visualização (50% do vídeo) e o <strong>CPVc</strong> o custo por visualização completa (100%). 
-              Estes valores podem variar conforme as configurações de campanha e as definições específicas de cada plataforma.
+              As métricas de <strong>visualizações</strong> e <strong>VTR</strong> são baseadas nos dados fornecidos
+              pelas plataformas. O <strong>CPV</strong> representa o custo por visualização (50% do vídeo) e o{" "}
+              <strong>CPVc</strong> o custo por visualização completa (100%). Estes valores podem variar conforme as
+              configurações de campanha e as definições específicas de cada plataforma.
             </p>
           </div>
         </div>

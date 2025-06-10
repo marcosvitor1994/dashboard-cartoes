@@ -4,7 +4,7 @@ import { AuthProvider } from "./contexts/AuthContext"
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute"
 import Layout from "./components/Layout/Layout"
 import Capa from "./pages/Capa/Capa"
-import EstrategiaDocumentacao from "./pages/EstrategiaDocumentacao/EstrategiaDocumentacao"
+// import EstrategiaDocumentacao from "./pages/EstrategiaDocumentacao/EstrategiaDocumentacao" // Removido conforme solicitação
 import LinhaTempo from "./pages/LinhaTempo/LinhaTempo"
 import EstrategiaOnline from "./pages/EstrategiaOnline/EstrategiaOnline"
 import VisaoGeral from "./pages/VisaoGeral/VisaoGeral"
@@ -14,8 +14,9 @@ import TrafegoEngajamento from "./pages/TrafegoEngajamento/TrafegoEngajamento"
 import CriativosTikTok from "./pages/CriativosTikTok/CriativosTikTok"
 import CriativosMetaAds from "./pages/CriativosMetaAds/CriativosMetaAds"
 import CriativosPinterest from "./pages/CriativosPinterest/CriativosPinterest"
-import "./App.css"
 import CriativosLinkedIn from "./pages/CriativosLinkedIn/CriativosLinkedin"
+import Glossario from "./pages/Glossario/Glossario" // Nova importação para Glossario
+import "./App.css"
 
 // Substitua pelo seu Google Client ID
 const GOOGLE_CLIENT_ID = "817600868083-2nmpbvf4emg6a21hrl4esjjo5g3ohepv.apps.googleusercontent.com"
@@ -31,7 +32,8 @@ function App() {
                 {/* Redirecionar para Capa ao invés de Dashboard */}
                 <Route path="/" element={<Navigate to="/capa" replace />} />
                 <Route path="/capa" element={<Capa />} />
-                <Route path="/estrategia-documentacao" element={<EstrategiaDocumentacao />} />
+                {/* <Route path="/estrategia-documentacao" element={<EstrategiaDocumentacao />} /> */}{" "}
+                {/* Removido conforme solicitação */}
                 <Route path="/linha-tempo" element={<LinhaTempo />} />
                 <Route path="/estrategia-online" element={<EstrategiaOnline />} />
                 <Route path="/visao-geral" element={<VisaoGeral />} />
@@ -42,6 +44,7 @@ function App() {
                 <Route path="/criativos-tiktok" element={<CriativosTikTok />} />
                 <Route path="/criativos-pinterest" element={<CriativosPinterest />} />
                 <Route path="/criativos-linkedin" element={<CriativosLinkedIn />} />
+                <Route path="/glossario" element={<Glossario />} /> {/* Nova rota para Glossario */}
               </Routes>
             </Layout>
           </ProtectedRoute>

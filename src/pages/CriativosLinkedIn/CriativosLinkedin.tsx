@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Linkedin, Calendar, Filter, ExternalLink } from "lucide-react"
+import { Linkedin, Calendar, Filter } from "lucide-react"
 import { useCartaoLinkedInData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
@@ -59,7 +59,7 @@ const CriativosLinkedIn: React.FC = () => {
           const accountName = row[headers.indexOf("Account name")] || ""
           const campaignGroupName = row[headers.indexOf("Campaign group name")] || ""
           const campaignName = row[headers.indexOf("Campaign name")] || ""
-          const creativeTitle = row[headers.indexOf("Creative title")] || ""
+          const creativeTitle = row[headers.indexOf("Creative Direct Sponsored Content name")] || ""
           const creativeText = row[headers.indexOf("Creative text")] || ""
           const creativeThumbnail = row[headers.indexOf("Creative thumbnail")] || ""
           const creativeThumbnailUrl = row[headers.indexOf("Creative thumbnail URL")] || ""
@@ -99,32 +99,8 @@ const CriativosLinkedIn: React.FC = () => {
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
-      // Agrupar por criativo (mesmo creative title) e somar métricas
-      const groupedData: Record<string, CreativeData> = {}
-      processed.forEach((item) => {
-        const key = `${item.creativeTitle}_${item.creativeThumbnailUrl}`
-        if (!groupedData[key]) {
-          groupedData[key] = { ...item }
-        } else {
-          groupedData[key].reach += item.reach
-          groupedData[key].impressions += item.impressions
-          groupedData[key].clicks += item.clicks
-          groupedData[key].totalSpent += item.totalSpent
-          groupedData[key].videoViews += item.videoViews
-          groupedData[key].videoViews25 += item.videoViews25
-          groupedData[key].videoViews50 += item.videoViews50
-          groupedData[key].videoViews75 += item.videoViews75
-          groupedData[key].videoCompletions += item.videoCompletions
-          groupedData[key].videoStarts += item.videoStarts
-          groupedData[key].totalEngagements += item.totalEngagements
-        }
-      })
-
-      // Ordenar por investimento (custo) decrescente
-      const finalData = Object.values(groupedData)
-      finalData.sort((a, b) => b.totalSpent - a.totalSpent)
-
-      setProcessedData(finalData)
+      // NÃO agrupar aqui - manter dados individuais para filtragem correta
+      setProcessedData(processed)
 
       // Definir range de datas inicial
       if (processed.length > 0) {
@@ -165,7 +141,32 @@ const CriativosLinkedIn: React.FC = () => {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
-    return filtered
+    // AGORA sim, agrupar por criativo APÓS a filtragem
+    const groupedData: Record<string, CreativeData> = {}
+    filtered.forEach((item) => {
+      const key = `${item.creativeTitle}_${item.creativeThumbnailUrl}`
+      if (!groupedData[key]) {
+        groupedData[key] = { ...item }
+      } else {
+        groupedData[key].reach += item.reach
+        groupedData[key].impressions += item.impressions
+        groupedData[key].clicks += item.clicks
+        groupedData[key].totalSpent += item.totalSpent
+        groupedData[key].videoViews += item.videoViews
+        groupedData[key].videoViews25 += item.videoViews25
+        groupedData[key].videoViews50 += item.videoViews50
+        groupedData[key].videoViews75 += item.videoViews75
+        groupedData[key].videoCompletions += item.videoCompletions
+        groupedData[key].videoStarts += item.videoStarts
+        groupedData[key].totalEngagements += item.totalEngagements
+      }
+    })
+
+    // Ordenar por investimento (custo) decrescente
+    const finalData = Object.values(groupedData)
+    finalData.sort((a, b) => b.totalSpent - a.totalSpent)
+
+    return finalData
   }, [processedData, selectedCampaign, dateRange])
 
   // Paginação
@@ -363,24 +364,24 @@ const CriativosLinkedIn: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-blue-600 text-white">
-                <th className="text-left py-3 px-4 font-semibold">Imagem</th>
+                <th className="text-left py-3 px-4 font-semibold w-[5rem]">Imagem</th>
                 <th className="text-left py-3 px-4 font-semibold">Criativo</th>
-                <th className="text-right py-3 px-4 font-semibold">Investimento</th>
-                <th className="text-right py-3 px-4 font-semibold">Impressões</th>
-                <th className="text-right py-3 px-4 font-semibold">Alcance</th>
-                <th className="text-right py-3 px-4 font-semibold">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold">Vídeo Views</th>
-                <th className="text-right py-3 px-4 font-semibold">Engajamentos</th>
-                <th className="text-right py-3 px-4 font-semibold">VTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Vídeo Views</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Engajamentos</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">VTR</th>
               </tr>
             </thead>
             <tbody>
               {paginatedData.map((creative, index) => {
                 const vtr = creative.impressions > 0 ? (creative.videoCompletions / creative.impressions) * 100 : 0
-                
+
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 w-[5rem]">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                         {creative.creativeThumbnailUrl ? (
                           <img
@@ -390,7 +391,10 @@ const CriativosLinkedIn: React.FC = () => {
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = "none"
-                              target.parentElement!.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
+                              // Adicionar verificação de segurança para o parentElement
+                              if (target.parentElement) {
+                                target.parentElement.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
+                              }
                             }}
                           />
                         ) : (
@@ -399,21 +403,31 @@ const CriativosLinkedIn: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="max-w-xs">
-                        <p className="font-medium text-gray-900 text-sm">{truncateText(creative.creativeTitle, 60)}</p>
-                        <p className="text-xs text-gray-500 mt-1">{truncateText(creative.campaignName, 40)}</p>
+                      <div className="">
+                        <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">
+                          {creative.creativeTitle}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 leading-tight whitespace-normal break-words">
+                          {creative.campaignName}
+                        </p>
                         {creative.creativeText && (
-                          <p className="text-xs text-gray-400 mt-1">{truncateText(creative.creativeText, 50)}</p>
+                          <p className="text-xs text-gray-400 mt-1 leading-tight whitespace-normal break-words">
+                            {creative.creativeText.length > 100
+                              ? creative.creativeText.substring(0, 100) + "..."
+                              : creative.creativeText}
+                          </p>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-right font-semibold">{formatCurrency(creative.totalSpent)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.impressions)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.reach)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.clicks)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.videoViews)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.totalEngagements)}</td>
-                    <td className="py-3 px-4 text-right">{vtr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right font-semibold min-w-[7.5rem]">
+                      {formatCurrency(creative.totalSpent)}
+                    </td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.clicks)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.videoViews)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.totalEngagements)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{vtr.toFixed(2)}%</td>
                   </tr>
                 )
               })}

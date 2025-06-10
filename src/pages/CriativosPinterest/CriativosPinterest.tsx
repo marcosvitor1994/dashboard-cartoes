@@ -117,41 +117,8 @@ const CriativosPinterest: React.FC = () => {
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
-      // Agrupar por criativo (mesmo promoted pin name) e somar métricas
-      const groupedData: Record<string, CreativeData> = {}
-      processed.forEach((item) => {
-        const key = `${item.promotedPinName}_${item.campaignName}`
-        if (!groupedData[key]) {
-          groupedData[key] = { ...item }
-        } else {
-          groupedData[key].impressions += item.impressions
-          groupedData[key].reach += item.reach
-          groupedData[key].clicks += item.clicks
-          groupedData[key].cost += item.cost
-          groupedData[key].outboundClicks += item.outboundClicks
-          groupedData[key].videoStartsPaid += item.videoStartsPaid
-          groupedData[key].videoViewsPaid += item.videoViewsPaid
-          groupedData[key].videoViews100Paid += item.videoViews100Paid
-          groupedData[key].videoViews25Paid += item.videoViews25Paid
-          groupedData[key].videoViews50Paid += item.videoViews50Paid
-          groupedData[key].videoViews75Paid += item.videoViews75Paid
-          groupedData[key].engagements += item.engagements
-        }
-      })
-
-      // Recalcular métricas derivadas
-      const finalData = Object.values(groupedData).map((item) => ({
-        ...item,
-        cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
-        cpc: item.clicks > 0 ? item.cost / item.clicks : 0,
-        ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
-        frequency: item.reach > 0 ? item.impressions / item.reach : 0,
-      }))
-
-      // Ordenar por investimento (custo) decrescente
-      finalData.sort((a, b) => b.cost - a.cost)
-
-      setProcessedData(finalData)
+      // NÃO agrupar aqui - manter dados individuais para filtragem correta
+      setProcessedData(processed)
 
       // Definir range de datas inicial
       if (processed.length > 0) {
@@ -192,7 +159,41 @@ const CriativosPinterest: React.FC = () => {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
-    return filtered
+    // AGORA sim, agrupar por criativo APÓS a filtragem
+    const groupedData: Record<string, CreativeData> = {}
+    filtered.forEach((item) => {
+      const key = `${item.promotedPinName}_${item.campaignName}`
+      if (!groupedData[key]) {
+        groupedData[key] = { ...item }
+      } else {
+        groupedData[key].impressions += item.impressions
+        groupedData[key].reach += item.reach
+        groupedData[key].clicks += item.clicks
+        groupedData[key].cost += item.cost
+        groupedData[key].outboundClicks += item.outboundClicks
+        groupedData[key].videoStartsPaid += item.videoStartsPaid
+        groupedData[key].videoViewsPaid += item.videoViewsPaid
+        groupedData[key].videoViews100Paid += item.videoViews100Paid
+        groupedData[key].videoViews25Paid += item.videoViews25Paid
+        groupedData[key].videoViews50Paid += item.videoViews50Paid
+        groupedData[key].videoViews75Paid += item.videoViews75Paid
+        groupedData[key].engagements += item.engagements
+      }
+    })
+
+    // Recalcular métricas derivadas
+    const finalData = Object.values(groupedData).map((item) => ({
+      ...item,
+      cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
+      cpc: item.clicks > 0 ? item.cost / item.clicks : 0,
+      ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
+      frequency: item.reach > 0 ? item.impressions / item.reach : 0,
+    }))
+
+    // Ordenar por investimento (custo) decrescente
+    finalData.sort((a, b) => b.cost - a.cost)
+
+    return finalData
   }, [processedData, selectedCampaign, dateRange])
 
   // Paginação
@@ -272,7 +273,7 @@ const CriativosPinterest: React.FC = () => {
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 19c-.721 0-1.418-.109-2.073-.312.286-.465.713-1.227.87-1.835l.437-1.664c.229.436.895.813 1.604.813 2.111 0 3.633-1.941 3.633-4.354 0-2.312-1.888-4.042-4.316-4.042-3.021 0-4.625 2.027-4.625 4.235 0 1.027.547 2.305 1.422 2.712.142.062.217.035.251-.097l.296-1.154c.038-.148.023-.196-.088-.322-.243-.275-.425-.713-.425-1.197 0-1.292.967-2.531 2.608-2.531 1.423 0 2.408.973 2.408 2.361 0 1.588-.632 2.713-1.425 2.713-.456 0-.796-.387-.687-.857l.313-1.228c.092-.366.277-1.495.277-1.854 0-.428-.229-.784-.706-.784-.559 0-1.006.577-1.006 1.35 0 .493.167.827.167.827s-.574 2.43-.675 2.85c-.128.538-.057 1.319-.03 1.742C5.867 18.06 2 15.414 2 12 2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 19c-.721 0-1.418-.109-2.073-.312.286-.465.713-1.227.87-1.835l.437-1.664c.229.436.895.813 1.604.813 2.111 0 3.633-1.941 3.633-4.354 0-2.312-1.888-4.042-4.316-4.042-3.021 0-4.625 2.027-4.625 4.235 0 1.027.547 2.305 1.422 2.712.142.062.217.035.251-.097l.296-1.154c.038-.148.023-.196-.088-.322-.243-.275-.425-.713-.425-1.197 0-1.292.967-2.531 2.608-2.531 1.423 0 2.408.973 2.408 2.361 0 1.588-.632 2.713-1.425 2.713-.456 0-.796-.387-.687-.857l.313-1.228c.092-.366.277-1.495.277-1.854 0-.428-.229-.784-.706-.784-.559 0-1.006.577-1.006 1.35 0 .493.167.827.167.827s-.574 2.43-.675 2.85c-.128.538-.057 1.319-.03 1.742C5.867 18.06 2 15.414 2 12 2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z" />
             </svg>
           </div>
           <div>
@@ -360,12 +361,7 @@ const CriativosPinterest: React.FC = () => {
         </div>
 
         <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
-          <div className="text-sm text-gray-600 mb-1">Cliques</div>
-          <div className="text-lg font-bold text-gray-900">{formatNumber(totals.clicks)}</div>
-        </div>
-
-        <div className="card-overlay rounded-lg shadow-lg p-4 text-center">
-          <div className="text-sm text-gray-600 mb-1">Cliques Saída</div>
+          <div className="text-sm text-gray-600 mb-1">Cliques no Link</div>
           <div className="text-lg font-bold text-gray-900">{formatNumber(totals.outboundClicks)}</div>
         </div>
 
@@ -397,14 +393,14 @@ const CriativosPinterest: React.FC = () => {
             <thead>
               <tr className="bg-red-600 text-white">
                 <th className="text-left py-3 px-4 font-semibold">Pin</th>
-                <th className="text-left py-3 px-4 font-semibold">Status</th>
-                <th className="text-right py-3 px-4 font-semibold">Investimento</th>
-                <th className="text-right py-3 px-4 font-semibold">Impressões</th>
-                <th className="text-right py-3 px-4 font-semibold">Alcance</th>
-                <th className="text-right py-3 px-4 font-semibold">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold">Cliques Saída</th>
-                <th className="text-right py-3 px-4 font-semibold">Engajamentos</th>
-                <th className="text-right py-3 px-4 font-semibold">CTR</th>
+                <th className="text-left py-3 px-4 font-semibold min-w-[7.5rem]">Status</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques Saída</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Engajamentos</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR</th>
               </tr>
             </thead>
             <tbody>
@@ -412,30 +408,38 @@ const CriativosPinterest: React.FC = () => {
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-red-50" : "bg-white"}>
                     <td className="py-3 px-4">
-                      <div className="max-w-xs">
-                        <p className="font-medium text-gray-900 text-sm">{truncateText(creative.promotedPinName, 60)}</p>
-                        <p className="text-xs text-gray-500 mt-1">{truncateText(creative.campaignName, 40)}</p>
+                      <div className="">
+                        <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">
+                          {creative.promotedPinName}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 leading-tight whitespace-normal break-words">
+                          {creative.campaignName}
+                        </p>
                         <p className="text-xs text-gray-400 mt-1">{creative.creativeType || "REGULAR"}</p>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        creative.promotedPinStatus === "ACTIVE" 
-                          ? "bg-green-100 text-green-800" 
-                          : creative.promotedPinStatus === "PAUSED"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
+                    <td className="py-3 px-4 min-w-[7.5rem]">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          creative.promotedPinStatus === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : creative.promotedPinStatus === "PAUSED"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
                         {creative.promotedPinStatus || "N/A"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right font-semibold">{formatCurrency(creative.cost)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.impressions)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.reach)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.clicks)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.outboundClicks)}</td>
-                    <td className="py-3 px-4 text-right">{formatNumber(creative.engagements)}</td>
-                    <td className="py-3 px-4 text-right">{creative.ctr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right font-semibold min-w-[7.5rem]">
+                      {formatCurrency(creative.cost)}
+                    </td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.clicks)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.outboundClicks)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.engagements)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.ctr.toFixed(2)}%</td>
                   </tr>
                 )
               })}

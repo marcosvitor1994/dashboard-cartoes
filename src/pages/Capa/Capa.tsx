@@ -1,7 +1,6 @@
 import type React from "react"
 import { Link } from "react-router-dom"
 import {
-  FileText,
   Clock,
   Globe,
   BarChart3,
@@ -9,12 +8,15 @@ import {
   Eye,
   TrendingUp,
   Video,
-  Share2,
   ArrowRight,
   Calendar,
   Target,
   User,
   TargetIcon as Bullseye,
+  Linkedin,
+  ImageIcon as MetaIcon,
+  PinIcon as Pinterest,
+  BookOpenText,
 } from "lucide-react"
 
 interface NavigationCard {
@@ -26,13 +28,7 @@ interface NavigationCard {
 }
 
 const navigationCards: NavigationCard[] = [
-  {
-    title: "Estratégia Documentação",
-    description: "Documentação completa da estratégia da campanha",
-    path: "/estrategia-documentacao",
-    icon: <FileText className="w-6 h-6" />,
-    color: "bg-blue-500",
-  },
+  // Card "Estratégia Documentação" removido conforme solicitação
   {
     title: "Linha do Tempo",
     description: "Cronograma e marcos importantes da campanha",
@@ -86,8 +82,29 @@ const navigationCards: NavigationCard[] = [
     title: "Criativos - Meta Ads",
     description: "Análise dos criativos no Facebook e Instagram",
     path: "/criativos-meta-ads",
-    icon: <Share2 className="w-6 h-6" />,
+    icon: <MetaIcon className="w-6 h-6" />, // Ícone do Meta
     color: "bg-blue-600",
+  },
+  {
+    title: "Criativos - Pinterest",
+    description: "Performance dos criativos na plataforma Pinterest",
+    path: "/criativos-pinterest",
+    icon: <Pinterest className="w-6 h-6" />, // Novo card para Pinterest
+    color: "bg-red-400",
+  },
+  {
+    title: "Criativos - LinkedIn",
+    description: "Performance dos criativos na plataforma LinkedIn",
+    path: "/criativos-linkedin",
+    icon: <Linkedin className="w-6 h-6" />, // Novo card para LinkedIn
+    color: "bg-blue-700",
+  },
+  {
+    title: "Glossário",
+    description: "Entenda os termos técnicos e métricas do dashboard",
+    path: "/glossario",
+    icon: <BookOpenText className="w-6 h-6" />, // Novo card para Glossário
+    color: "bg-purple-600",
   },
 ]
 

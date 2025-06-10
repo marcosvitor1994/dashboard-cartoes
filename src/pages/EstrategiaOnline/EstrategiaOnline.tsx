@@ -475,15 +475,21 @@ const EstrategiaOnline: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            {" "}
+            {/* Adicionado table-fixed */}
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Veículo</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Orçamento Previsto</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Share (%)</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Orçamento Realizado</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Share (%)</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Pacing</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 w-[20%]">Veículo</th>{" "}
+                {/* Largura percentual */}
+                <th className="text-right py-3 px-4 font-semibold text-gray-700 w-[18%]">Orçamento Previsto</th>{" "}
+                {/* Largura percentual */}
+                <th className="text-center py-3 px-4 font-semibold text-gray-700 w-[12%]">Share (%)</th>{" "}
+                {/* Largura percentual */}
+                <th className="text-right py-3 px-4 font-semibold text-gray-700 w-[18%]">Orçamento Realizado</th>{" "}
+                {/* Largura percentual */}
+                <th className="text-center py-3 px-4 font-semibold text-gray-700 w-[32%]">Pacing</th>{" "}
+                {/* Largura percentual maior */}
               </tr>
             </thead>
             <tbody>
@@ -511,11 +517,10 @@ const EstrategiaOnline: React.FC = () => {
                   <td className="py-4 px-4 text-right">
                     <span className="font-semibold text-gray-900">{formatCurrency(vehicle.custoInvestido)}</span>
                   </td>
-                  <td className="py-4 px-4 text-center">
-                    <span className="text-gray-700">{vehicle.shareInvestido.toFixed(2)}%</span>
-                  </td>
                   <td className="py-4 px-4">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 w-full">
+                      {" "}
+                      {/* Adicionado w-full */}
                       <div className="flex-1 bg-gray-200 rounded-full h-3 relative overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
@@ -536,7 +541,7 @@ const EstrategiaOnline: React.FC = () => {
                         )}
                       </div>
                       <span
-                        className="text-sm font-medium min-w-[50px] text-right"
+                        className="text-sm font-medium text-right"
                         style={{ color: getPacingColor(vehicle.pacing) }}
                       >
                         {vehicle.pacing.toFixed(1)}%
@@ -555,12 +560,6 @@ const EstrategiaOnline: React.FC = () => {
                 <td className="py-4 px-4 text-center font-bold text-gray-900">100,00%</td>
                 <td className="py-4 px-4 text-right font-bold text-gray-900">
                   {formatCurrency(filteredTotals.totalInvestido)}
-                </td>
-                <td className="py-4 px-4 text-center font-bold text-gray-900">
-                  {filteredTotals.totalPrevisto > 0
-                    ? ((filteredTotals.totalInvestido / filteredTotals.totalPrevisto) * 100).toFixed(2)
-                    : "0.00"}
-                  %
                 </td>
                 <td className="py-4 px-4 text-center">
                   <span className="font-bold" style={{ color: getPacingColor(filteredTotals.pacing) }}>

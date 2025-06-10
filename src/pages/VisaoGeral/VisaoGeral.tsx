@@ -55,6 +55,15 @@ const VisaoGeral: React.FC = () => {
     Default: "#6366f1",
   }
 
+  // Placeholder para dados de benchmark
+  const benchmarkMetrics = {
+    cpm: 5.0, // R$ 5,00
+    cpc: 0.8, // R$ 0,80
+    cpv: 0.05, // R$ 0,05 (Custo por Visualização de Vídeo - placeholder)
+    ctr: 1.5, // 1.5%
+    vtr: 70, // 70% (View-Through Rate - placeholder)
+  }
+
   const availablePlatforms = useMemo(() => {
     const platforms = new Set<string>()
     processedData.forEach((item) => {
@@ -192,6 +201,13 @@ const VisaoGeral: React.FC = () => {
     const clicks = filteredData.reduce((sum, item) => sum + item.clicks, 0)
     const frequency = filteredData.length > 0 && reach > 0 ? impressions / reach : 0
     const cpm = impressions > 0 ? investment / (impressions / 1000) : 0
+    const cpc = clicks > 0 ? investment / clicks : 0 // Calcular CPC
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0 // Calcular CTR
+
+    // CPV e VTR são placeholders, pois os dados brutos não contêm visualizações de vídeo ou conclusões.
+    // Para valores reais, seria necessário adicionar essas métricas ao `apiData`.
+    const cpv = 0.06 // Placeholder
+    const vtr = 65 // Placeholder
 
     return {
       investment,
@@ -200,6 +216,10 @@ const VisaoGeral: React.FC = () => {
       clicks,
       frequency,
       cpm,
+      cpc, // Adicionar CPC
+      ctr, // Adicionar CTR
+      cpv, // Adicionar CPV placeholder
+      vtr, // Adicionar VTR placeholder
     }
   }, [filteredData])
 
@@ -287,6 +307,31 @@ const VisaoGeral: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Componente para exibir métrica comparativa
+  const MetricComparison: React.FC<{
+    label: string
+    value: number
+    benchmark: number
+    format: (val: number) => string
+    isHigherBetter: boolean
+  }> = ({ label, value, benchmark, format, isHigherBetter }) => {
+    const isBetter = isHigherBetter ? value >= benchmark : value <= benchmark
+    const colorClass = isBetter ? "text-green-600" : "text-red-600"
+    const arrowIcon = isBetter ? "↑" : "↓" // Seta simples para indicar direção
+
+    return (
+      <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+        <span className="text-sm text-gray-700">{label}</span>
+        <div className="flex items-center space-x-2">
+          <span className={`text-sm font-medium ${colorClass}`}>{format(value)}</span>
+          <span className="text-xs text-gray-500">
+            ({format(benchmark)} {arrowIcon})
+          </span>
         </div>
       </div>
     )
@@ -425,22 +470,49 @@ const VisaoGeral: React.FC = () => {
           <HorizontalBarChart data={clicksChartData} title="Cliques" />
         </div>
 
-        {/* Resumo de Performance */}
+        {/* Quadro Comparativo de Métricas com Benchmark */}
         <div className="card-overlay rounded-lg shadow-lg p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Resumo de Performance</h4>
-          <div className="space-y-3">
-            {platformMetrics.slice(0, 5).map((metric, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metric.color }} />
-                  <span className="text-sm text-gray-700">{metric.platform}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">{formatNumber(metric.impressions)}</div>
-                  <div className="text-xs text-gray-500">{formatCurrency(metric.cost)}</div>
-                </div>
-              </div>
-            ))}
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Comparativo com Benchmark</h4>
+          <div className="space-y-1">
+            <MetricComparison
+              label="CPM"
+              value={totals.cpm}
+              benchmark={benchmarkMetrics.cpm}
+              format={(val) => `R$ ${val.toFixed(2)}`}
+              isHigherBetter={false}
+            />
+            <MetricComparison
+              label="CPC"
+              value={totals.cpc}
+              benchmark={benchmarkMetrics.cpc}
+              format={(val) => `R$ ${val.toFixed(2)}`}
+              isHigherBetter={false}
+            />
+            <MetricComparison
+              label="CPV (Est.)"
+              value={totals.cpv}
+              benchmark={benchmarkMetrics.cpv}
+              format={(val) => `R$ ${val.toFixed(2)}`}
+              isHigherBetter={false}
+            />
+            <MetricComparison
+              label="CTR"
+              value={totals.ctr}
+              benchmark={benchmarkMetrics.ctr}
+              format={(val) => `${val.toFixed(2)}%`}
+              isHigherBetter={true}
+            />
+            <MetricComparison
+              label="VTR (Est.)"
+              value={totals.vtr}
+              benchmark={benchmarkMetrics.vtr}
+              format={(val) => `${val.toFixed(2)}%`}
+              isHigherBetter={true}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              *CPV e VTR são estimativas baseadas em dados limitados. Para precisão, dados de visualização de vídeo são
+              necessários.
+            </p>
           </div>
         </div>
       </div>
