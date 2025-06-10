@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { ResponsiveLine } from "@nivo/line"
-import { Calendar, Filter, TrendingUp, Play, Info, DollarSign, MousePointer } from "lucide-react"
+import { Calendar, Filter, TrendingUp, Play, Info, DollarSign, MousePointer, Eye, BarChart3 } from "lucide-react"
 import { useConsolidadoData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 import PDFDownloadButton from "../../components/PDFDownloadButton/PDFDownloadButton"
@@ -52,6 +52,9 @@ const LinhaTempo: React.FC = () => {
   const [availableVehicles, setAvailableVehicles] = useState<string[]>([])
   const [isWeeklyAnalysis, setIsWeeklyAnalysis] = useState(false)
   const [filteredData, setFilteredData] = useState<DataPoint[]>([])
+  const [selectedMetric, setSelectedMetric] = useState<
+    "impressions" | "clicks" | "totalSpent" | "videoViews" | "cpm" | "cpc" | "ctr" | "vtr"
+  >("impressions")
 
   // Cores para diferentes plataformas/veículos
   const platformColors: Record<string, string> = {
@@ -66,7 +69,7 @@ const LinhaTempo: React.FC = () => {
     "Portal Forum": "#8b4513",
     YouTube: "#ff0000",
     Pinterest: "#bd081c",
-    Default: "#6366f1",
+    Default: "#6366f1", // Cor padrão para veículos não mapeados
   }
 
   // Função para criar datas locais sem problemas de timezone
@@ -75,7 +78,7 @@ const LinhaTempo: React.FC = () => {
     const parts = dateStr.split("-")
     if (parts.length !== 3) return new Date()
     const [year, month, day] = parts
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    return new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
   }
 
   // Processar dados da API
@@ -84,16 +87,11 @@ const LinhaTempo: React.FC = () => {
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
 
-      console.log("Headers:", headers)
-      console.log("Sample rows:", rows.slice(0, 3))
-
       const processed: DataPoint[] = rows
         .map((row: any[]) => {
-          // Função para converter valores monetários (remove R$, pontos, vírgulas)
           const parseNumber = (value: string | number) => {
             if (!value || value === "" || value === null || value === undefined) return 0
             const stringValue = value.toString()
-            // Remove R$, espaços, pontos (milhares) e converte vírgula para ponto decimal
             const cleanValue = stringValue
               .replace(/R\$\s*/g, "")
               .replace(/\./g, "")
@@ -103,17 +101,14 @@ const LinhaTempo: React.FC = () => {
             return isNaN(parsed) ? 0 : parsed
           }
 
-          // Função para converter números inteiros (impressões, cliques, etc.)
           const parseInteger = (value: string | number) => {
             if (!value || value === "" || value === null || value === undefined) return 0
             const stringValue = value.toString()
-            // Remove pontos (separadores de milhares) mas mantém o número inteiro
             const cleanValue = stringValue.replace(/\./g, "").trim()
             const parsed = Number.parseInt(cleanValue)
             return isNaN(parsed) ? 0 : parsed
           }
 
-          // Função para converter data do formato DD/MM/YYYY para YYYY-MM-DD
           const parseDate = (dateStr: string) => {
             if (!dateStr) return ""
             const parts = dateStr.split("/")
@@ -122,7 +117,6 @@ const LinhaTempo: React.FC = () => {
             return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
           }
 
-          // Mapear os índices baseados nos headers
           const dateIndex = headers.indexOf("Date")
           const campaignNameIndex = headers.indexOf("Campaign name")
           const creativeTitleIndex = headers.indexOf("Creative title")
@@ -140,12 +134,10 @@ const LinhaTempo: React.FC = () => {
           const veiculoIndex = headers.indexOf("Veículo")
           const tipoCompraIndex = headers.indexOf("Tipo de Compra")
 
-          // Verificar se a linha tem dados válidos
           if (dateIndex === -1 || !row[dateIndex] || row[dateIndex] === "") {
             return null
           }
 
-          // Verificar se pelo menos impressões ou investimento existem
           const hasImpressions = row[impressionsIndex] && row[impressionsIndex] !== ""
           const hasSpent = row[totalSpentIndex] && row[totalSpentIndex] !== ""
 
@@ -157,7 +149,7 @@ const LinhaTempo: React.FC = () => {
           const formattedDate = parseDate(originalDate)
 
           const dataPoint: DataPoint = {
-            date: formattedDate, // Usar data formatada para ISO
+            date: formattedDate,
             campaignName: row[campaignNameIndex] || "",
             creativeTitle: row[creativeTitleIndex] || "",
             platform: row[veiculoIndex] || "Outros",
@@ -180,15 +172,10 @@ const LinhaTempo: React.FC = () => {
         })
         .filter(Boolean) as DataPoint[]
 
-      console.log("Processed data sample:", processed.slice(0, 3))
-      console.log("Total processed items:", processed.length)
-
-      // Ordenar por data
       processed.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
       setProcessedData(processed)
 
-      // Configurar range de datas automaticamente
       if (processed.length > 0) {
         const dates = processed
           .map((item) => item.date)
@@ -198,13 +185,10 @@ const LinhaTempo: React.FC = () => {
         if (dates.length > 0) {
           const firstDate = dates[0]
           const lastDate = dates[dates.length - 1]
-
-          console.log("Date range set:", { firstDate, lastDate })
           setDateRange({ start: firstDate, end: lastDate })
         }
       }
 
-      // Extrair veículos únicos
       const vehicleSet = new Set<string>()
       processed.forEach((item) => {
         if (item.platform && item.platform.trim() !== "") {
@@ -212,24 +196,16 @@ const LinhaTempo: React.FC = () => {
         }
       })
       const vehicles = Array.from(vehicleSet).filter(Boolean)
-      console.log("Available vehicles:", vehicles)
       setAvailableVehicles(vehicles)
-      setSelectedVehicles([]) // Começar sem filtro de veículos
+      setSelectedVehicles([])
     }
   }, [apiData])
 
   // Filtrar dados baseado nos filtros selecionados
   useEffect(() => {
-    console.log("Filtering data with:", {
-      processedDataLength: processedData.length,
-      dateRange,
-      selectedVehicles,
-    })
-
     if (processedData.length > 0) {
       let filtered = processedData
 
-      // Aplicar filtro de data se especificado
       if (dateRange.start && dateRange.end) {
         filtered = filtered.filter((item) => {
           const itemDate = new Date(item.date)
@@ -239,47 +215,100 @@ const LinhaTempo: React.FC = () => {
         })
       }
 
-      // Aplicar filtro de veículos se especificado
-      if (selectedVehicles.length > 0) {
-        filtered = filtered.filter((item) => selectedVehicles.includes(item.platform))
-      }
-
-      console.log("Filtered data length:", filtered.length)
-      console.log("Filtered data sample:", filtered.slice(0, 2))
       setFilteredData(filtered)
     } else {
       setFilteredData([])
     }
-  }, [processedData, dateRange, selectedVehicles])
+  }, [processedData, dateRange])
+
+  // Função para obter o valor da métrica de um item de dado
+  const getMetricValue = (item: DataPoint, metric: typeof selectedMetric): number => {
+    switch (metric) {
+      case "impressions":
+        return item.impressions || 0
+      case "clicks":
+        return item.clicks || 0
+      case "totalSpent":
+        return item.totalSpent || 0
+      case "videoViews":
+        return item.videoViews || item.videoCompletions || 0 // Usar videoCompletions como fallback para views
+      case "cpm":
+        return item.impressions > 0 ? (item.totalSpent / item.impressions) * 1000 : 0
+      case "cpc":
+        return item.clicks > 0 ? item.totalSpent / item.clicks : 0
+      case "ctr":
+        return item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0
+      case "vtr":
+        const totalViews = item.videoViews || item.videoCompletions || 0
+        return item.impressions > 0 ? (totalViews / item.impressions) * 100 : 0
+      default:
+        return 0
+    }
+  }
 
   // Preparar dados para o gráfico
   const chartData: ChartData[] = useMemo(() => {
-    const groupedByDate = filteredData.reduce(
-      (acc, item) => {
-        const date = item.date
-        if (!acc[date]) {
-          acc[date] = 0
+    if (selectedVehicles.length === 0) {
+      // Agregação para uma única linha (todos os veículos)
+      const groupedByDate = filteredData.reduce(
+        (acc, item) => {
+          const date = item.date
+          if (!acc[date]) {
+            acc[date] = 0
+          }
+          acc[date] += getMetricValue(item, selectedMetric)
+          return acc
+        },
+        {} as Record<string, number>,
+      )
+
+      const data = Object.entries(groupedByDate)
+        .map(([date, value]) => ({
+          x: date,
+          y: value,
+        }))
+        .sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime())
+
+      return [
+        {
+          id: selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1),
+          data,
+        },
+      ]
+    } else {
+      // Múltiplas linhas para veículos selecionados
+      const seriesMap: Record<string, Record<string, number>> = {}
+
+      selectedVehicles.forEach((vehicle) => {
+        seriesMap[vehicle] = {}
+      })
+
+      filteredData.forEach((item) => {
+        if (selectedVehicles.includes(item.platform)) {
+          const date = item.date
+          if (!seriesMap[item.platform][date]) {
+            seriesMap[item.platform][date] = 0
+          }
+          seriesMap[item.platform][date] += getMetricValue(item, selectedMetric)
         }
-        acc[date] += item.impressions
-        return acc
-      },
-      {} as Record<string, number>,
-    )
+      })
 
-    const data = Object.entries(groupedByDate)
-      .map(([date, impressions]) => ({
-        x: date,
-        y: impressions,
-      }))
-      .sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime())
-
-    return [
-      {
-        id: "Impressões",
-        data,
-      },
-    ]
-  }, [filteredData])
+      const result: ChartData[] = []
+      Object.entries(seriesMap).forEach(([platform, dataByDate]) => {
+        const data = Object.entries(dataByDate)
+          .map(([date, value]) => ({
+            x: date,
+            y: value,
+          }))
+          .sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime())
+        result.push({
+          id: platform,
+          data,
+        })
+      })
+      return result.sort((a, b) => a.id.localeCompare(b.id)) // Ordenar por nome da plataforma
+    }
+  }, [filteredData, selectedVehicles, selectedMetric])
 
   // Identificar entradas de veículos
   const vehicleEntries: VehicleEntry[] = useMemo(() => {
@@ -329,6 +358,17 @@ const LinhaTempo: React.FC = () => {
     return value.toLocaleString("pt-BR")
   }
 
+  // Função para formatar valores do eixo Y e tooltip
+  const formatChartValue = (value: number): string => {
+    if (["totalSpent", "cpm", "cpc", "cpv"].includes(selectedMetric)) {
+      return formatCurrency(value)
+    }
+    if (["ctr", "vtr"].includes(selectedMetric)) {
+      return `${value.toFixed(2)}%`
+    }
+    return formatNumber(value)
+  }
+
   // Função para alternar seleção de veículo
   const toggleVehicle = (vehicle: string) => {
     setSelectedVehicles((prev) => {
@@ -374,7 +414,7 @@ const LinhaTempo: React.FC = () => {
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2 text-sm text-gray-600 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-lg">
             <TrendingUp className="w-4 h-4" />
-            <span>Evolução de Impressões</span>
+            <span>Evolução de {selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}</span>
           </div>
           <PDFDownloadButton contentRef={contentRef} fileName="linha-tempo" />
           <button
@@ -388,7 +428,7 @@ const LinhaTempo: React.FC = () => {
 
       {/* Filtros */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Filtro de Data */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -434,6 +474,39 @@ const LinhaTempo: React.FC = () => {
                   }}
                 >
                   {vehicle}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtro de Métricas */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Métrica do Gráfico
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "impressions", label: "Impressões", icon: TrendingUp },
+                { key: "clicks", label: "Cliques", icon: MousePointer },
+                { key: "totalSpent", label: "Investimento", icon: DollarSign },
+                { key: "videoViews", label: "Visualizações", icon: Eye },
+                { key: "cpm", label: "CPM", icon: DollarSign },
+                { key: "cpc", label: "CPC", icon: DollarSign },
+                { key: "ctr", label: "CTR", icon: BarChart3 },
+                { key: "vtr", label: "VTR", icon: BarChart3 },
+              ].map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedMetric(key as typeof selectedMetric)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                    selectedMetric === key
+                      ? "bg-purple-100 text-purple-800 border border-purple-300"
+                      : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                  }`}
+                >
+                  <Icon className="w-3 h-3 inline-block mr-1" />
+                  {label}
                 </button>
               ))}
             </div>
@@ -484,9 +557,11 @@ const LinhaTempo: React.FC = () => {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
         {/* Gráfico */}
         <div className="lg:col-span-3 card-overlay rounded-lg shadow-lg p-4 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Evolução de Impressões por Data</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Evolução de {selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)} por Data
+          </h3>
           <div className="flex-1" style={{ minHeight: "400px" }}>
-            {chartData[0]?.data.length > 0 ? (
+            {chartData.length > 0 && chartData.some((series) => series.data.length > 0) ? (
               <ResponsiveLine
                 data={chartData}
                 margin={{ top: 30, right: 30, bottom: 80, left: 100 }}
@@ -507,10 +582,10 @@ const LinhaTempo: React.FC = () => {
                   tickSize: 5,
                   tickPadding: 10,
                   tickRotation: 0,
-                  legend: "Impressões",
+                  legend: selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1),
                   legendOffset: -85,
                   legendPosition: "middle",
-                  format: (value) => formatNumber(value),
+                  format: (value) => formatChartValue(value),
                 }}
                 pointSize={8}
                 pointColor={{ theme: "background" }}
@@ -518,7 +593,11 @@ const LinhaTempo: React.FC = () => {
                 pointBorderColor={{ from: "serieColor" }}
                 pointLabelYOffset={-12}
                 useMesh={true}
-                colors={["#3b82f6"]}
+                colors={
+                  selectedVehicles.length > 0
+                    ? (serie) => platformColors[serie.id] || platformColors.Default
+                    : ["#3b82f6"]
+                }
                 lineWidth={3}
                 enableArea={true}
                 areaOpacity={0.1}
@@ -548,13 +627,43 @@ const LinhaTempo: React.FC = () => {
                     },
                   },
                 }}
+                legends={
+                  selectedVehicles.length > 0
+                    ? [
+                        {
+                          anchor: "top-right",
+                          direction: "row",
+                          justify: false,
+                          translateX: 0,
+                          translateY: -25,
+                          itemsSpacing: 10,
+                          itemDirection: "left-to-right",
+                          itemWidth: 120,
+                          itemHeight: 20,
+                          itemOpacity: 0.85,
+                          symbolSize: 12,
+                          symbolShape: "circle",
+                          symbolBorderColor: "rgba(0, 0, 0, .5)",
+                          effects: [
+                            {
+                              on: "hover",
+                              style: {
+                                itemBackground: "rgba(0, 0, 0, .03)",
+                                itemOpacity: 1,
+                              },
+                            },
+                          ],
+                        },
+                      ]
+                    : []
+                }
                 tooltip={({ point }) => (
                   <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
                     <div className="text-sm font-medium text-gray-900">
                       Data: {new Date(point.data.x as string).toLocaleDateString("pt-BR")}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {point.seriesId}: {formatNumber(point.data.y as number)}
+                      {point.seriesId}: {formatChartValue(point.data.y as number)}
                     </div>
                   </div>
                 )}
@@ -563,7 +672,7 @@ const LinhaTempo: React.FC = () => {
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
                   <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum dado disponível para o período selecionado</p>
+                  <p>Nenhum dado disponível para o período ou filtros selecionados</p>
                 </div>
               </div>
             )}
@@ -585,7 +694,9 @@ const LinhaTempo: React.FC = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{entry.platform}</p>
-                  <p className="text-xs text-gray-500">{createLocalDate(entry.firstDate).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-gray-500">
+                    {createLocalDate(entry.firstDate).toLocaleDateString("pt-BR")}
+                  </p>
                 </div>
               </div>
             ))}
