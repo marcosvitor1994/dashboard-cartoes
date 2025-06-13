@@ -85,6 +85,14 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
         const response = await fetch("/brazil-states.json")
         const data: StatesCollection = await response.json()
         setGeoData(data)
+
+        // Log the GeoJSON structure for debugging
+        console.log("GeoJSON loaded successfully")
+        console.log("GeoJSON features count:", data.features.length)
+        console.log(
+          "First few state names from GeoJSON:",
+          data.features.slice(0, 5).map((f) => f.properties.name),
+        )
       } catch (error) {
         console.error("Error loading Brazil GeoJSON:", error)
       }
@@ -100,6 +108,12 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
   // D3 map rendering
   useEffect(() => {
     if (!geoData || !svgRef.current) return
+
+    console.log(
+      "GeoJSON state names:",
+      geoData.features.map((f) => f.properties.name),
+    )
+    console.log("Region data keys:", Object.keys(regionData))
 
     const svg = d3.select(svgRef.current)
     svg.selectAll("*").remove() // Clear previous render

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { TrendingUp, Calendar, Filter, MousePointer, Clock, Users } from "lucide-react"
 import Loading from "../../components/Loading/Loading"
 import { useGA4ResumoData, useGA4CompletoData } from "../../services/api" // Importar nova API
@@ -38,12 +38,35 @@ const API_TO_GEOJSON_STATE_NAMES: { [key: string]: string } = {
   "State of Sao Paulo": "São Paulo",
   "State of Sergipe": "Sergipe",
   "State of Tocantins": "Tocantins",
-  "Upper Takutu-Upper Essequibo": "Outros", // Este não é um estado brasileiro, mapeando para "Outros"
+  "Upper Takutu-Upper Essequibo": "Outros", // This isn't a Brazilian state
 }
 
 const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
   const { data: ga4ResumoData, loading: resumoLoading, error: resumoError } = useGA4ResumoData()
   const { data: ga4CompletoData, loading: completoLoading, error: completoError } = useGA4CompletoData() // Nova API
+
+  // Log raw API data for debugging
+  useEffect(() => {
+    if (ga4ResumoData?.values) {
+      console.log("Raw GA4 Resumo Data:", ga4ResumoData.values)
+
+      // Find the Region column index
+      const headers = ga4ResumoData.values[0]
+      const regionIndex = headers.indexOf("Region")
+
+      if (regionIndex !== -1) {
+        // Extract all unique regions from the data
+        const uniqueRegions = new Set<string>()
+        ga4ResumoData.values.slice(1).forEach((row: any[]) => {
+          if (row[regionIndex] && row[regionIndex] !== "(not set)") {
+            uniqueRegions.add(row[regionIndex])
+          }
+        })
+
+        console.log("All unique regions from API:", Array.from(uniqueRegions))
+      }
+    }
+  }, [ga4ResumoData])
 
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
     start: "2025-05-26",
@@ -97,6 +120,16 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
     const saibaMaisIndex = headers.indexOf("Key event count for web_pvc_cartoes_useourocard_saibamais")
     const veiculoIndex = headers.indexOf("Veículo")
 
+    console.log("Column indices:", {
+      regionIndex,
+      deviceIndex,
+      sessionsIndex,
+      bounceRateIndex,
+      avgDurationIndex,
+      saibaMaisIndex,
+      veiculoIndex,
+    })
+
     let totalSessions = 0
     let totalSaibaMais = 0
     let totalDuration = 0
@@ -136,9 +169,14 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
           // Usar o mapeamento para converter o nome do estado
           const normalizedRegion = API_TO_GEOJSON_STATE_NAMES[region] || region
           regionData[normalizedRegion] = (regionData[normalizedRegion] || 0) + sessions
+
+          // Log the mapping for debugging
+          console.log(`Mapping region: API "${region}" -> GeoJSON "${normalizedRegion}" (${sessions} sessions)`)
         }
       }
     })
+
+    console.log("Final processed region data:", regionData)
 
     // Converter em arrays ordenados
     const dispositivos = Object.entries(deviceData)
@@ -264,7 +302,9 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
   )
 
   const getIntensityColor = (sessions: number): string => {
-    const maxSessions = Math.max(...Object.values(processedResumoData.dadosRegiao))
+    // pega todos os valores de sessões já mapeados no mapa
+    const values = Object.values(processedResumoData.dadosRegiao);
+    const maxSessions = values.length > 0 ? Math.max(...values) : 0;
     if (sessions === 0) return "#e5e7eb" // Sem dados
 
     const intensity = sessions / maxSessions
@@ -436,7 +476,20 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
 
         {/* Mapa de Calor - Usando o novo componente */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
-          <BrazilMap regionData={processedResumoData.dadosRegiao} getIntensityColor={getIntensityColor} />
+          <BrazilMap
+            regionData={processedResumoData.dadosRegiao}
+            getIntensityColor={(sessions) => {
+              const values = Object.values(processedResumoData.dadosRegiao);
+              const max = values.length ? Math.max(...values) : 0;
+              if (!max || sessions === 0) return "#e5e7eb";
+              const i = sessions / max;
+              return i > 0.7 ? "#dc2626"
+                  : i > 0.5 ? "#f59e0b"
+                  : i > 0.3 ? "#eab308"
+                  : i > 0.1 ? "#10b981"
+                  : "#6b7280";
+            }}
+          />
         </div>
       </div>
 
