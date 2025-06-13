@@ -9,6 +9,38 @@ import BrazilMap from "../../components/BrazilMap/BrazilMap" // Importar novo co
 
 type TrafegoEngajamentoProps = {}
 
+// Mapeamento explícito dos nomes dos estados da API para os nomes no GeoJSON
+const API_TO_GEOJSON_STATE_NAMES: { [key: string]: string } = {
+  Ceara: "Ceará",
+  "Federal District": "Distrito Federal",
+  "State of Acre": "Acre",
+  "State of Alagoas": "Alagoas",
+  "State of Amapa": "Amapá",
+  "State of Amazonas": "Amazonas",
+  "State of Bahia": "Bahia",
+  "State of Espirito Santo": "Espírito Santo",
+  "State of Goias": "Goiás",
+  "State of Maranhao": "Maranhão",
+  "State of Mato Grosso": "Mato Grosso",
+  "State of Mato Grosso do Sul": "Mato Grosso do Sul",
+  "State of Minas Gerais": "Minas Gerais",
+  "State of Para": "Pará",
+  "State of Paraiba": "Paraíba",
+  "State of Parana": "Paraná",
+  "State of Pernambuco": "Pernambuco",
+  "State of Piaui": "Piauí",
+  "State of Rio de Janeiro": "Rio de Janeiro",
+  "State of Rio Grande do Norte": "Rio Grande do Norte",
+  "State of Rio Grande do Sul": "Rio Grande do Sul",
+  "State of Rondonia": "Rondônia",
+  "State of Roraima": "Roraima",
+  "State of Santa Catarina": "Santa Catarina",
+  "State of Sao Paulo": "São Paulo",
+  "State of Sergipe": "Sergipe",
+  "State of Tocantins": "Tocantins",
+  "Upper Takutu-Upper Essequibo": "Outros", // Este não é um estado brasileiro, mapeando para "Outros"
+}
+
 const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
   const { data: ga4ResumoData, loading: resumoLoading, error: resumoError } = useGA4ResumoData()
   const { data: ga4CompletoData, loading: completoLoading, error: completoError } = useGA4CompletoData() // Nova API
@@ -99,9 +131,11 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
           veiculoData[veiculo] = (veiculoData[veiculo] || 0) + sessions
         }
 
-        // Regiões
+        // Regiões - Converter o nome do estado para o formato esperado pelo mapa
         if (region !== "(not set)" && region.trim() !== "" && region !== " ") {
-          regionData[region] = (regionData[region] || 0) + sessions
+          // Usar o mapeamento para converter o nome do estado
+          const normalizedRegion = API_TO_GEOJSON_STATE_NAMES[region] || region
+          regionData[normalizedRegion] = (regionData[normalizedRegion] || 0) + sessions
         }
       }
     })
@@ -331,60 +365,59 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
         </div>
       </div>
 
-      {/* Cards de Métricas Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-green-50 to-green-100">
+      {/* Cards de Métricas Principais - Ajustado para 5 cards em uma linha */}
+      <div className="grid grid-cols-5 gap-4">
+        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-green-50 to-green-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-600">Sessões Campanha</p>
-              <p className="text-3xl font-bold text-green-900">
+              <p className="text-2xl font-bold text-green-900">
                 {formatNumber(processedResumoData.receptivo.sessoesCampanha)}
               </p>
             </div>
-            <Users className="w-12 h-12 text-green-600" />
+            <Users className="w-10 h-10 text-green-600" />
           </div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-blue-50 to-blue-100">
+        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-blue-50 to-blue-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-blue-600">Cliques SaibaMais</p>
-              <p className="text-3xl font-bold text-blue-900">
+              <p className="text-2xl font-bold text-blue-900">
                 {formatNumber(processedResumoData.receptivo.cliquesSaibaMais)}
               </p>
             </div>
-            <MousePointer className="w-12 h-12 text-blue-600" />
+            <MousePointer className="w-10 h-10 text-blue-600" />
           </div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-purple-50 to-purple-100">
+        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-purple-50 to-purple-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-purple-600">Duração sessões</p>
-              <p className="text-3xl font-bold text-purple-900">{processedResumoData.receptivo.duracaoSessoes}</p>
+              <p className="text-2xl font-bold text-purple-900">{processedResumoData.receptivo.duracaoSessoes}</p>
             </div>
-            <Clock className="w-12 h-12 text-purple-600" />
+            <Clock className="w-10 h-10 text-purple-600" />
           </div>
         </div>
 
-        {/* Novos Cards */}
-        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-yellow-50 to-yellow-100">
+        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-yellow-50 to-yellow-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-yellow-600">Sessões Totais</p>
-              <p className="text-3xl font-bold text-yellow-900">{formatNumber(processedCompletoData.totalSessions)}</p>
+              <p className="text-2xl font-bold text-yellow-900">{formatNumber(processedCompletoData.totalSessions)}</p>
             </div>
-            <Users className="w-12 h-12 text-yellow-600" />
+            <Users className="w-10 h-10 text-yellow-600" />
           </div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-red-50 to-red-100">
+        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-red-50 to-red-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-red-600">Eventos Totais</p>
-              <p className="text-3xl font-bold text-red-900">{formatNumber(processedCompletoData.totalEvents)}</p>
+              <p className="text-2xl font-bold text-red-900">{formatNumber(processedCompletoData.totalEvents)}</p>
             </div>
-            <TrendingUp className="w-12 h-12 text-red-600" />
+            <TrendingUp className="w-10 h-10 text-red-600" />
           </div>
         </div>
       </div>

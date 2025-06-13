@@ -3,56 +3,66 @@
 import type React from "react"
 import { useRef, useEffect, useState, useMemo } from "react"
 import * as d3 from "d3"
+import type { FeatureCollection, Feature, Geometry } from "geojson"
 
 // Mapeamento de nomes de estados para abreviações e vice-versa
 const STATE_NAMES_TO_ABBR: { [key: string]: string } = {
-  "State of Acre": "AC",
-  "State of Alagoas": "AL",
-  "State of Amapa": "AP",
-  "State of Amazonas": "AM",
-  "State of Bahia": "BA",
-  "State of Ceara": "CE",
-  "Federal District": "DF", // Distrito Federal
-  "State of Espirito Santo": "ES",
-  "State of Goias": "GO",
-  "State of Maranhao": "MA",
-  "State of Mato Grosso": "MT",
-  "State of Mato Grosso do Sul": "MS",
-  "State of Minas Gerais": "MG",
-  "State of Para": "PA",
-  "State of Paraiba": "PB",
-  "State of Parana": "PR",
-  "State of Pernambuco": "PE",
-  "State of Piaui": "PI",
-  "State of Rio de Janeiro": "RJ",
-  "State of Rio Grande do Norte": "RN",
-  "State of Rio Grande do Sul": "RS",
-  "State of Rondonia": "RO",
-  "State of Roraima": "RR",
-  "State of Santa Catarina": "SC",
-  "State of Sao Paulo": "SP",
-  "State of Sergipe": "SE",
-  "State of Tocantins": "TO",
+  Acre: "AC",
+  Alagoas: "AL",
+  Amapá: "AP",
+  Amazonas: "AM",
+  Bahia: "BA",
+  Ceará: "CE",
+  "Distrito Federal": "DF",
+  "Espírito Santo": "ES",
+  Goiás: "GO",
+  Maranhão: "MA",
+  "Mato Grosso": "MT",
+  "Mato Grosso do Sul": "MS",
+  "Minas Gerais": "MG",
+  Pará: "PA",
+  Paraíba: "PB",
+  Paraná: "PR",
+  Pernambuco: "PE",
+  Piauí: "PI",
+  "Rio de Janeiro": "RJ",
+  "Rio Grande do Norte": "RN",
+  "Rio Grande do Sul": "RS",
+  Rondônia: "RO",
+  Roraima: "RR",
+  "Santa Catarina": "SC",
+  "São Paulo": "SP",
+  Sergipe: "SE",
+  Tocantins: "TO",
 }
 
 const ABBR_TO_STATE_NAMES: { [key: string]: string } = Object.entries(STATE_NAMES_TO_ABBR).reduce(
   (acc: { [key: string]: string }, [name, abbr]) => {
-    // Explicitly type acc
-    acc[abbr] = name.replace("State of ", "") // Remove "State of " para exibição
-    if (name === "Federal District") acc[abbr] = "Distrito Federal"
+    acc[abbr] = name
     return acc
   },
   {},
 )
 
+// Tipos para as propriedades dos estados brasileiros
+interface StateProperties {
+  name: string
+  sigla: string
+  [key: string]: any
+}
+
+// Tipos para GeoJSON usando os tipos nativos
+type StateFeature = Feature<Geometry, StateProperties>
+type StatesCollection = FeatureCollection<Geometry, StateProperties>
+
 interface BrazilMapProps {
-  regionData: { [key: string]: number } // { "State of Bahia": 12345, ... }
+  regionData: { [key: string]: number } // { "Bahia": 12345, ... }
   getIntensityColor: (sessions: number) => string
 }
 
 const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) => {
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const [geoData, setGeoData] = useState<any>(null)
+  const [geoData, setGeoData] = useState<StatesCollection | null>(null)
   const [tooltip, setTooltip] = useState<{
     visible: boolean
     x: number
@@ -73,7 +83,7 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
       try {
         // Assuming brazil-states.json is in the public folder
         const response = await fetch("/brazil-states.json")
-        const data = await response.json()
+        const data: StatesCollection = await response.json()
         setGeoData(data)
       } catch (error) {
         console.error("Error loading Brazil GeoJSON:", error)
@@ -81,6 +91,11 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
     }
     loadGeoData()
   }, [])
+
+  // Debug: Log regionData para verificar os dados recebidos
+  useEffect(() => {
+    console.log("Region Data recebido pelo BrazilMap:", regionData)
+  }, [regionData])
 
   // D3 map rendering
   useEffect(() => {
@@ -104,38 +119,35 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
       .data(geoData.features)
       .enter()
       .append("path")
-      .attr("d", path)
-      .attr("fill", (d: any) => {
-        const stateFullName = d.properties.name // GeoJSON might have full name
-        const stateAbbr = d.properties.sigla // GeoJSON might have abbreviation
+      .attr("d", (d: StateFeature) => path(d) || "")
+      .attr("fill", (d: StateFeature) => {
+        const stateName = d.properties.name // Nome do estado do GeoJSON
 
-        // Try to match using full name first, then abbreviation
-        const sessions =
-          regionData[stateFullName] || regionData[`State of ${stateFullName}`] || regionData[stateAbbr] || 0
+        // Debug: Log para verificar o nome do estado e os dados correspondentes
+        console.log(`Verificando estado: ${stateName}, Dados disponíveis:`, regionData[stateName])
+
+        // Tenta encontrar os dados de sessão para este estado
+        const sessions = regionData[stateName] || 0
         return getIntensityColor(sessions)
       })
       .attr("stroke", "#ffffff")
       .attr("stroke-width", 1)
       .style("cursor", "pointer")
-      .on("mouseover", function (event: MouseEvent, d: any) {
-        // Explicitly type event
-        const stateFullName = d.properties.name
-        const stateAbbr = d.properties.sigla
-        const sessions =
-          regionData[stateFullName] || regionData[`State of ${stateFullName}`] || regionData[stateAbbr] || 0
+      .on("mouseover", function (this: SVGPathElement, event: MouseEvent, d: StateFeature) {
+        const stateName = d.properties.name
+        const sessions = regionData[stateName] || 0
 
         const [x, y] = d3.pointer(event, document.body)
         setTooltip({
           visible: true,
           x: x + 10,
           y: y - 10,
-          stateName: ABBR_TO_STATE_NAMES[stateAbbr] || stateFullName,
+          stateName: stateName,
           sessions: sessions,
         })
-        d3.select(this as SVGPathElement).attr("opacity", 0.8) // Explicitly cast 'this'
+        d3.select(this).attr("opacity", 0.8)
       })
       .on("mousemove", (event: MouseEvent) => {
-        // Explicitly type event
         const [x, y] = d3.pointer(event, document.body)
         setTooltip((prev) => ({
           ...prev,
@@ -143,15 +155,15 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
           y: y - 10,
         }))
       })
-      .on("mouseout", function () {
+      .on("mouseout", function (this: SVGPathElement) {
         setTooltip((prev) => ({ ...prev, visible: false }))
-        d3.select(this as SVGPathElement).attr("opacity", 1) // Explicitly cast 'this'
+        d3.select(this).attr("opacity", 1)
       })
 
     // Add state labels for larger states (optional, can be removed if too cluttered)
     g.selectAll("text")
       .data(
-        geoData.features.filter((d: any) => {
+        geoData.features.filter((d: StateFeature) => {
           const bounds = path.bounds(d)
           const area = (bounds[1][0] - bounds[0][0]) * (bounds[1][1] - bounds[0][1])
           return area > 1000 // Only show labels for larger states
@@ -159,15 +171,21 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
       )
       .enter()
       .append("text")
-      .attr("x", (d: any) => path.centroid(d)[0])
-      .attr("y", (d: any) => path.centroid(d)[1])
+      .attr("x", (d: StateFeature) => {
+        const centroid = path.centroid(d)
+        return centroid[0]
+      })
+      .attr("y", (d: StateFeature) => {
+        const centroid = path.centroid(d)
+        return centroid[1]
+      })
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
       .attr("font-size", "10px")
       .attr("font-weight", "bold")
       .attr("fill", "#2c3e50")
       .attr("pointer-events", "none")
-      .text((d: any) => d.properties.sigla)
+      .text((d: StateFeature) => d.properties.sigla)
   }, [geoData, regionData, getIntensityColor])
 
   // Helper to format numbers for tooltip
@@ -272,10 +290,7 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
           <div className="text-center p-3 bg-blue-50 rounded-lg">
             <div className="text-lg font-bold text-blue-600">
               {Object.keys(regionData).length > 0
-                ? Object.entries(regionData)
-                    .sort(([, a], [, b]) => b - a)[0][0]
-                    .replace("State of ", "")
-                    .replace("Federal District", "Distrito Federal")
+                ? Object.entries(regionData).sort(([, a], [, b]) => b - a)[0][0]
                 : "N/A"}
             </div>
             <div className="text-xs text-gray-600">Região Líder</div>

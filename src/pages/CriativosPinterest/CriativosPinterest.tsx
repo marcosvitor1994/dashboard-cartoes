@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Calendar, Filter } from "lucide-react"
-import { useCartaoPinterestData, usePinterestImageData } from "../../services/api" // Importar nova API
+import { useCartaoPinterestData, usePinterestImageData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface CreativeData {
@@ -40,14 +40,17 @@ interface CreativeData {
 const getGoogleDriveDirectLink = (url: string): string | null => {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)\/view/)
   if (match && match[1]) {
-    return `https://drive.google.com/uc?export=download&id=${match[1]}`
+    const directLink = `https://drive.google.com/uc?export=download&id=${match[1]}`
+    console.log(`Original GD link: ${url} -> Direct GD link: ${directLink}`) // Debug
+    return directLink
   }
+  console.log(`Could not convert GD link: ${url}`) // Debug
   return null
 }
 
 const CriativosPinterest: React.FC = () => {
   const { data: apiData, loading: pinterestLoading, error: pinterestError } = useCartaoPinterestData()
-  const { data: imageData, loading: imageLoading, error: imageError } = usePinterestImageData() // Nova API
+  const { data: imageData, loading: imageLoading, error: imageError } = usePinterestImageData()
 
   const [processedData, setProcessedData] = useState<CreativeData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
@@ -62,29 +65,37 @@ const CriativosPinterest: React.FC = () => {
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
 
-      // Criar um mapa de Ad ID para URL de mídia
+      // Criar um mapa de Ad ID para URL de mídia a partir dos dados de imagem
       const mediaMap = new Map<string, string>()
       if (imageData?.values) {
         const imageHeaders = imageData.values[0]
-        const imageRows = imageData.values.slice(1)
-        const creativeNameIndex = imageHeaders.indexOf("Criativo")
-        const urlIndex = imageHeaders.indexOf("URL")
+        const adIdColIndex = imageHeaders.indexOf("Ad ID")
+        const urlColIndex = imageHeaders.indexOf("URL")
 
-        imageRows.forEach((row: string[]) => {
-          const creativeName = row[creativeNameIndex]
-          const url = row[urlIndex]
-          if (creativeName && url) {
-            // O Criativo na imagem API é "Ad ID_Promoted pin name"
-            const adIdMatch = creativeName.match(/^(\d+)_/)
-            if (adIdMatch && adIdMatch[1]) {
-              const adId = adIdMatch[1]
+        if (adIdColIndex === -1 || urlColIndex === -1) {
+          console.warn("Cabeçalhos 'Ad ID' ou 'URL' não encontrados nos dados de imagem do Pinterest.")
+        } else {
+          const imageRows = imageData.values.slice(1)
+          imageRows.forEach((row: string[]) => {
+            const adIdRaw = row[adIdColIndex]
+            const url = row[urlColIndex]
+
+            if (adIdRaw && url) {
+              let adIdToMap = adIdRaw.trim() // Trim para remover espaços em branco
+              // Verifica se o Ad ID contém o sufixo "_Promoted pin name" e extrai apenas o ID numérico
+              const adIdMatch = adIdRaw.match(/^(\d+)_/)
+              if (adIdMatch && adIdMatch[1]) {
+                adIdToMap = adIdMatch[1]
+              }
+
               const directLink = getGoogleDriveDirectLink(url)
               if (directLink) {
-                mediaMap.set(adId, directLink)
+                mediaMap.set(adIdToMap, directLink)
+                console.log(`Mapped Ad ID: ${adIdToMap} to URL: ${directLink}`) // Debug
               }
             }
-          }
-        })
+          })
+        }
       }
 
       const processed: CreativeData[] = rows
@@ -103,7 +114,7 @@ const CriativosPinterest: React.FC = () => {
           const advertiserName = row[headers.indexOf("Advertiser name")] || ""
           const campaignName = row[headers.indexOf("Campaign name")] || ""
           const adGroupName = row[headers.indexOf("Ad group name")] || ""
-          const adId = row[headers.indexOf("Ad ID")] || "" // Extrair Ad ID
+          const adId = row[headers.indexOf("Ad ID")]?.trim() || "" // Extrair Ad ID da API principal e trim
           const destinationUrl = row[headers.indexOf("Destination URL")] || ""
           const promotedPinName = row[headers.indexOf("Promoted pin name")] || ""
           const promotedPinStatus = row[headers.indexOf("Promoted pin status")] || ""
@@ -126,7 +137,8 @@ const CriativosPinterest: React.FC = () => {
           const videoViews75Paid = parseInteger(row[headers.indexOf("Video views at 75% paid")])
           const engagements = parseInteger(row[headers.indexOf("Engagements")])
 
-          const mediaUrl = mediaMap.get(adId) // Obter URL da mídia
+          const mediaUrl = mediaMap.get(adId) // Obter URL da mídia usando o Ad ID da API principal
+          console.log(`Processing Ad ID: ${adId}, Found mediaUrl: ${mediaUrl}`) // Debug
 
           return {
             date,
@@ -160,7 +172,6 @@ const CriativosPinterest: React.FC = () => {
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
-      // NÃO agrupar aqui - manter dados individuais para filtragem correta
       setProcessedData(processed)
 
       // Definir range de datas inicial
@@ -435,7 +446,7 @@ const CriativosPinterest: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-red-600 text-white">
-                <th className="text-left py-3 px-4 font-semibold">Mídia</th> {/* Nova coluna */}
+                <th className="text-left py-3 px-4 font-semibold">Mídia</th>
                 <th className="text-left py-3 px-4 font-semibold">Pin</th>
                 <th className="text-left py-3 px-4 font-semibold min-w-[7.5rem]">Status</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
@@ -456,7 +467,11 @@ const CriativosPinterest: React.FC = () => {
                   <tr key={index} className={index % 2 === 0 ? "bg-red-50" : "bg-white"}>
                     <td className="py-3 px-4 w-[100px] h-[100px] flex items-center justify-center">
                       {isVideo ? (
-                        <video controls className="max-w-full max-h-full object-contain rounded-md">
+                        <video
+                          controls
+                          className="max-w-full max-h-full object-contain rounded-md"
+                          crossOrigin="anonymous"
+                        >
                           <source src={creative.mediaUrl} type="video/mp4" />
                           Seu navegador não suporta o elemento de vídeo.
                         </video>
@@ -465,8 +480,13 @@ const CriativosPinterest: React.FC = () => {
                           src={creative.mediaUrl || "/placeholder.svg"}
                           alt={creative.promotedPinName}
                           className="max-w-full max-h-full object-contain rounded-md"
+                          crossOrigin="anonymous" // Adicionado para lidar com CORS
                           onError={(e) => {
                             const target = e.target as HTMLImageElement
+                            console.error(
+                              `Erro ao carregar imagem para Ad ID: ${creative.adId}, URL: ${creative.mediaUrl}`,
+                              e,
+                            ) // Debug
                             if (target.parentElement) {
                               target.parentElement.innerHTML =
                                 '<div class="text-xs text-gray-400 text-center">Erro ao carregar imagem</div>'
