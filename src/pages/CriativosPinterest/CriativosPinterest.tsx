@@ -36,16 +36,17 @@ interface CreativeData {
   mediaUrl?: string // Adicionado para a URL da mídia
 }
 
-// Função para converter Google Drive view link para direct download link
-const getGoogleDriveDirectLink = (url: string): string | null => {
+// Função para converter Google Drive view link para embed link
+const getGoogleDriveEmbedLink = (url: string): string => {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)\/view/)
   if (match && match[1]) {
-    const directLink = `https://drive.google.com/uc?export=download&id=${match[1]}`
-    console.log(`Original GD link: ${url} -> Direct GD link: ${directLink}`) // Debug
-    return directLink
+    const fileId = match[1]
+    const embedLink = `https://drive.google.com/file/d/${fileId}/preview`
+    console.log(`Original GD link: ${url} -> Embed GD link: ${embedLink}`) // Debug
+    return embedLink
   }
   console.log(`Could not convert GD link: ${url}`) // Debug
-  return null
+  return url // Retornar URL original se não conseguir converter
 }
 
 const CriativosPinterest: React.FC = () => {
@@ -58,19 +59,31 @@ const CriativosPinterest: React.FC = () => {
   const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [debugInfo, setDebugInfo] = useState<{ mediaMapSize: number; processedItems: number }>({ 
+    mediaMapSize: 0, 
+    processedItems: 0 
+  })
 
   // Processar dados da API principal e de imagens
   useEffect(() => {
+    console.log("=== Iniciando processamento de dados do Pinterest ===") // Debug
+    console.log("API Data disponível:", !!apiData?.values, "Rows:", apiData?.values?.length) // Debug
+    console.log("Image Data disponível:", !!imageData?.values, "Rows:", imageData?.values?.length) // Debug
+    
     if (apiData?.values) {
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
 
       // Criar um mapa de Ad ID para URL de mídia a partir dos dados de imagem
       const mediaMap = new Map<string, string>()
+      console.log("Image data received:", imageData) // Debug
       if (imageData?.values) {
         const imageHeaders = imageData.values[0]
         const adIdColIndex = imageHeaders.indexOf("Ad ID")
         const urlColIndex = imageHeaders.indexOf("URL")
+        
+        console.log("Image headers:", imageHeaders) // Debug
+        console.log("Ad ID column index:", adIdColIndex, "URL column index:", urlColIndex) // Debug
 
         if (adIdColIndex === -1 || urlColIndex === -1) {
           console.warn("Cabeçalhos 'Ad ID' ou 'URL' não encontrados nos dados de imagem do Pinterest.")
@@ -81,21 +94,18 @@ const CriativosPinterest: React.FC = () => {
             const url = row[urlColIndex]
 
             if (adIdRaw && url) {
-              let adIdToMap = adIdRaw.trim() // Trim para remover espaços em branco
-              // Verifica se o Ad ID contém o sufixo "_Promoted pin name" e extrai apenas o ID numérico
-              const adIdMatch = adIdRaw.match(/^(\d+)_/)
-              if (adIdMatch && adIdMatch[1]) {
-                adIdToMap = adIdMatch[1]
-              }
-
-              const directLink = getGoogleDriveDirectLink(url)
-              if (directLink) {
-                mediaMap.set(adIdToMap, directLink)
-                console.log(`Mapped Ad ID: ${adIdToMap} to URL: ${directLink}`) // Debug
-              }
+              // Extrair apenas o ID numérico, removendo qualquer sufixo após underscore
+              const adIdToMap = adIdRaw.split('_')[0].trim()
+              
+              const embedLink = getGoogleDriveEmbedLink(url)
+              mediaMap.set(adIdToMap, embedLink)
+              console.log(`Mapped Ad ID: ${adIdToMap} to URL: ${embedLink}`) // Debug
             }
           })
         }
+        console.log(`Total de mídias mapeadas: ${mediaMap.size}`) // Debug
+        console.log("Mapa de mídias:", Array.from(mediaMap.entries())) // Debug
+        setDebugInfo(prev => ({ ...prev, mediaMapSize: mediaMap.size })) // Atualizar debug info
       }
 
       const processed: CreativeData[] = rows
@@ -138,6 +148,9 @@ const CriativosPinterest: React.FC = () => {
           const engagements = parseInteger(row[headers.indexOf("Engagements")])
 
           const mediaUrl = mediaMap.get(adId) // Obter URL da mídia usando o Ad ID da API principal
+          if (!mediaUrl && adId) {
+            console.log(`No media found for Ad ID: ${adId}`) // Debug detalhado quando não encontrar mídia
+          }
           console.log(`Processing Ad ID: ${adId}, Found mediaUrl: ${mediaUrl}`) // Debug
 
           return {
@@ -173,6 +186,7 @@ const CriativosPinterest: React.FC = () => {
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
       setProcessedData(processed)
+      setDebugInfo(prev => ({ ...prev, processedItems: processed.length })) // Atualizar debug info
 
       // Definir range de datas inicial
       if (processed.length > 0) {
@@ -394,7 +408,8 @@ const CriativosPinterest: React.FC = () => {
               {filteredData.length} pins encontrados
             </div>
           </div>
-        </div>
+        </div>        
+        
       </div>
 
       {/* Métricas Principais */}
@@ -460,42 +475,40 @@ const CriativosPinterest: React.FC = () => {
             </thead>
             <tbody>
               {paginatedData.map((creative, index) => {
-                const isVideo = creative.creativeType === "VIDEO" && creative.mediaUrl
-                const isImage = creative.creativeType === "REGULAR" && creative.mediaUrl
-
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-red-50" : "bg-white"}>
-                    <td className="py-3 px-4 w-[100px] h-[100px] flex items-center justify-center">
-                      {isVideo ? (
-                        <video
-                          controls
-                          className="max-w-full max-h-full object-contain rounded-md"
-                          crossOrigin="anonymous"
-                        >
-                          <source src={creative.mediaUrl} type="video/mp4" />
-                          Seu navegador não suporta o elemento de vídeo.
-                        </video>
-                      ) : isImage ? (
-                        <img
-                          src={creative.mediaUrl || "/placeholder.svg"}
-                          alt={creative.promotedPinName}
-                          className="max-w-full max-h-full object-contain rounded-md"
-                          crossOrigin="anonymous" // Adicionado para lidar com CORS
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            console.error(
-                              `Erro ao carregar imagem para Ad ID: ${creative.adId}, URL: ${creative.mediaUrl}`,
-                              e,
-                            ) // Debug
-                            if (target.parentElement) {
-                              target.parentElement.innerHTML =
-                                '<div class="text-xs text-gray-400 text-center">Erro ao carregar imagem</div>'
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="text-xs text-gray-400 text-center">Sem mídia</div>
-                      )}
+                    <td className="py-3 px-4 w-[100px] h-[100px]">
+                      <div className="w-full h-full flex items-center justify-center">
+                        {creative.mediaUrl ? (
+                          <iframe 
+                            src={creative.mediaUrl}
+                            className="w-full h-full rounded-md"
+                            frameBorder="0"
+                            allow="autoplay"
+                            sandbox="allow-scripts allow-same-origin"
+                            onError={(e) => {
+                              console.error(`Erro ao carregar mídia para Ad ID: ${creative.adId}`, e)
+                              const target = e.target as HTMLIFrameElement
+                              if (target.parentElement) {
+                                target.parentElement.innerHTML = `
+                                  <div class="text-xs text-gray-400 text-center p-2">
+                                    <div>Mídia não disponível</div>
+                                    <div class="text-[10px] mt-1">ID: ${creative.adId}</div>
+                                    <div class="text-[10px] mt-1">Tipo: ${creative.creativeType || 'N/A'}</div>
+                                  </div>
+                                `
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md">
+                            <div className="text-xs text-gray-400 text-center p-2">
+                              <div>Sem mídia</div>
+                              <div className="text-[10px] mt-1">ID: {creative.adId}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="">
