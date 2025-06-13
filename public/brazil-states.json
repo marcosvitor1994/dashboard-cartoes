@@ -1,0 +1,140 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Acre", "sigla": "AC" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Alagoas", "sigla": "AL" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Amapá", "sigla": "AP" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Amazonas", "sigla": "AM" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Bahia", "sigla": "BA" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Ceará", "sigla": "CE" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Distrito Federal", "sigla": "DF" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Espírito Santo", "sigla": "ES" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Goiás", "sigla": "GO" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Maranhão", "sigla": "MA" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Mato Grosso", "sigla": "MT" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Mato Grosso do Sul", "sigla": "MS" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Minas Gerais", "sigla": "MG" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Pará", "sigla": "PA" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Paraíba", "sigla": "PB" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Paraná", "sigla": "PR" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Pernambuco", "sigla": "PE" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Piauí", "sigla": "PI" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Rio de Janeiro", "sigla": "RJ" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Rio Grande do Norte", "sigla": "RN" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Rio Grande do Sul", "sigla": "RS" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Rondônia", "sigla": "RO" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Roraima", "sigla": "RR" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Santa Catarina", "sigla": "SC" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "São Paulo", "sigla": "SP" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Sergipe", "sigla": "SE" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Tocantins", "sigla": "TO" },
+      "geometry": { "type": "Polygon", "coordinates": [] }
+    }
+  ]
+}

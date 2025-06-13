@@ -1,15 +1,18 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
-import { TrendingUp, Calendar, Filter, MousePointer, Clock, Users, MapPin, Target } from "lucide-react"
+import { useState, useMemo } from "react"
+import { TrendingUp, Calendar, Filter, MousePointer, Clock, Users } from "lucide-react"
 import Loading from "../../components/Loading/Loading"
-import { useGA4ResumoData } from "../../services/api"
+import { useGA4ResumoData, useGA4CompletoData } from "../../services/api" // Importar nova API
+import BrazilMap from "../../components/BrazilMap/BrazilMap" // Importar novo componente de mapa
 
 type TrafegoEngajamentoProps = {}
 
 const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
-  const { data: ga4Data, loading, error } = useGA4ResumoData()
+  const { data: ga4ResumoData, loading: resumoLoading, error: resumoError } = useGA4ResumoData()
+  const { data: ga4CompletoData, loading: completoLoading, error: completoError } = useGA4CompletoData() // Nova API
+
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
     start: "2025-05-26",
     end: "2025-06-31",
@@ -20,23 +23,23 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
   const getVeiculoColor = (veiculo: string): string => {
     const colors: { [key: string]: string } = {
       "Google Ads": "#4285f4",
-      "GDN": "#4285f4",
+      GDN: "#4285f4",
       "Demand-Gen": "#4285f4",
-      "YouTube": "#ff0000",
+      YouTube: "#ff0000",
       "Meta Ads": "#1877f2",
       "TikTok Ads": "#ff0050",
-      "Spotify": "#1DB954",
-      "Netflix": "#E50914",
+      Spotify: "#1DB954",
+      Netflix: "#E50914",
       "Portal Forum": "#8b5cf6",
       "Brasil 247": "#10b981",
-      "Band": "#f59e0b",
+      Band: "#f59e0b",
     }
     return colors[veiculo] || "#6b7280"
   }
 
-  // Processamento dos dados da API
-  const processedData = useMemo(() => {
-    if (!ga4Data?.values || ga4Data.values.length <= 1) {
+  // Processamento dos dados da API GA4 Resumo (para o mapa e gráficos existentes)
+  const processedResumoData = useMemo(() => {
+    if (!ga4ResumoData?.values || ga4ResumoData.values.length <= 1) {
       return {
         receptivo: {
           sessoesCampanha: 0,
@@ -50,8 +53,8 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
       }
     }
 
-    const headers = ga4Data.values[0]
-    const rows = ga4Data.values.slice(1)
+    const headers = ga4ResumoData.values[0]
+    const rows = ga4ResumoData.values.slice(1)
 
     // Índices das colunas
     const regionIndex = headers.indexOf("Region")
@@ -73,10 +76,10 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
     const regionData: { [key: string]: number } = {}
 
     rows.forEach((row: any[]) => {
-      const sessions = parseInt(row[sessionsIndex]) || 0
-      const saibaMais = parseInt(row[saibaMaisIndex]) || 0
-      const duration = parseFloat(row[avgDurationIndex]) || 0
-      const bounceRate = parseFloat(row[bounceRateIndex]) || 0
+      const sessions = Number.parseInt(row[sessionsIndex]) || 0
+      const saibaMais = Number.parseInt(row[saibaMaisIndex]) || 0
+      const duration = Number.parseFloat(row[avgDurationIndex]) || 0
+      const bounceRate = Number.parseFloat(row[bounceRateIndex]) || 0
       const device = row[deviceIndex] || "Outros"
       const veiculo = row[veiculoIndex] || "Outros"
       const region = row[regionIndex] || "Outros"
@@ -143,7 +146,36 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
       veiculosSessoes,
       dadosRegiao: regionData,
     }
-  }, [ga4Data])  
+  }, [ga4ResumoData])
+
+  // Processamento dos dados da NOVA API GA4 Completo (para os novos cards)
+  const processedCompletoData = useMemo(() => {
+    if (!ga4CompletoData?.values || ga4CompletoData.values.length <= 1) {
+      return {
+        totalSessions: 0,
+        totalEvents: 0,
+      }
+    }
+
+    const headers = ga4CompletoData.values[0]
+    const rows = ga4CompletoData.values.slice(1)
+
+    const sessionsIndex = headers.indexOf("Sessions")
+    const eventCountIndex = headers.indexOf("Event count")
+
+    let totalSessions = 0
+    let totalEvents = 0
+
+    rows.forEach((row: any[]) => {
+      totalSessions += Number.parseInt(row[sessionsIndex]) || 0
+      totalEvents += Number.parseInt(row[eventCountIndex]) || 0
+    })
+
+    return {
+      totalSessions,
+      totalEvents,
+    }
+  }, [ga4CompletoData])
 
   // Função para formatar números
   const formatNumber = (value: number): string => {
@@ -175,9 +207,7 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
         {data.map((item, index) => (
           <div key={index} className="space-y-1">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">
-                {item.categoria || item.tipo || item.veiculo}
-              </span>
+              <span className="text-sm font-medium text-gray-700">{item.categoria || item.tipo || item.veiculo}</span>
               {showValues && (
                 <span className="text-sm text-gray-600">
                   {formatNumber(item.sessoes)} ({item.percentual.toFixed(1)}%)
@@ -200,147 +230,28 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
   )
 
   const getIntensityColor = (sessions: number): string => {
-      const maxSessions = Math.max(...Object.values(processedData.dadosRegiao))
-      if (sessions === 0) return "#e5e7eb"
-      
-      const intensity = sessions / maxSessions
-      if (intensity > 0.7) return "#dc2626" // Vermelho forte
-      if (intensity > 0.5) return "#f59e0b" // Laranja
-      if (intensity > 0.3) return "#eab308" // Amarelo
-      if (intensity > 0.1) return "#10b981" // Verde
-      return "#6b7280" // Cinza
-    }
+    const maxSessions = Math.max(...Object.values(processedResumoData.dadosRegiao))
+    if (sessions === 0) return "#e5e7eb" // Sem dados
 
-  // Componente do mapa do Brasil
-  const BrazilHeatMap: React.FC = () => {
-    const topRegioes = Object.entries(processedData.dadosRegiao)
-      .filter(([region]) => region !== "(not set)" && region.trim() !== "")
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 10)
-      .map(([region, sessions]) => ({
-        name: region.replace("State of ", ""),
-        sessions,
-        color: getIntensityColor(sessions)
-      }))
-    
-
-    return (
-      <div className="space-y-4">
-        <div className="bg-white rounded-lg p-6">
-          {/* Representação visual simplificada */}
-          <div className="mb-6 p-4 bg-gradient-to-br from-blue-50 to-green-50 rounded-lg text-center">
-            <MapPin className="w-16 h-16 text-blue-500 mx-auto mb-3" />
-            <h4 className="text-lg font-semibold text-gray-800 mb-2">Distribuição Geográfica</h4>
-            <p className="text-sm text-gray-600">
-              Análise de {formatNumber(Object.values(processedData.dadosRegiao).reduce((a, b) => a + b, 0))} sessões
-              distribuídas em {Object.keys(processedData.dadosRegiao).length} regiões
-            </p>
-          </div>
-
-          {/* Legenda de cores */}
-          <div className="mb-6">
-            <h5 className="text-sm font-semibold text-gray-700 mb-3">Intensidade de Sessões:</h5>
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-                <span>Sem dados</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-                <span>Muito Baixo</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span>Baixo</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span>Médio</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span>Alto</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span>Muito Alto</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Top Regiões */}
-          <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-4">Top Regiões por Sessões</h4>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {topRegioes.map((regiao, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border-l-4"
-                  style={{ borderLeftColor: regiao.color }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded-full text-xs font-semibold text-gray-600">
-                      {index + 1}
-                    </div>
-                    <span className="font-medium text-gray-800">{regiao.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: regiao.color }}
-                    />
-                    <span className="font-bold text-blue-600">
-                      {formatNumber(regiao.sessions)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Estatísticas resumidas */}
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <div className="text-lg font-bold text-blue-600">
-                {topRegioes.length > 0 ? topRegioes[0].name : "N/A"}
-              </div>
-              <div className="text-xs text-gray-600">Região Líder</div>
-            </div>
-            <div className="text-center p-3 bg-green-50 rounded-lg">
-              <div className="text-lg font-bold text-green-600">
-                {formatNumber(topRegioes.reduce((acc, curr) => acc + curr.sessions, 0))}
-              </div>
-              <div className="text-xs text-gray-600">Total Top 10</div>
-            </div>
-            <div className="text-center p-3 bg-purple-50 rounded-lg">
-              <div className="text-lg font-bold text-purple-600">
-                {topRegioes.length > 0 ? Math.round((topRegioes[0].sessions / Object.values(processedData.dadosRegiao).reduce((a, b) => a + b, 0)) * 100) : 0}%
-              </div>
-              <div className="text-xs text-gray-600">% da Líder</div>
-            </div>
-          </div>
-
-          {/* Nota sobre mapa geográfico */}
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-xs text-yellow-800">
-              <strong>Nota:</strong> Representação baseada nos dados do GA4. 
-              Para visualização geográfica completa, recomenda-se integração com bibliotecas especializadas como D3.js ou Mapbox.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
+    const intensity = sessions / maxSessions
+    if (intensity > 0.7) return "#dc2626" // Vermelho forte (Muito Alto)
+    if (intensity > 0.5) return "#f59e0b" // Laranja (Alto)
+    if (intensity > 0.3) return "#eab308" // Amarelo (Médio)
+    if (intensity > 0.1) return "#10b981" // Verde (Baixo)
+    return "#6b7280" // Cinza (Muito Baixo)
   }
 
-  if (loading) {
+  if (resumoLoading || completoLoading) {
     return <Loading message="Carregando dados de tráfego e engajamento..." />
   }
 
-  if (error) {
+  if (resumoError || completoError) {
     return (
       <div className="p-6 text-center">
         <div className="text-red-500 mb-2">Erro ao carregar dados</div>
         <p className="text-gray-600">Não foi possível carregar os dados do GA4. Tente novamente.</p>
+        {resumoError && <p className="text-xs text-red-400">{resumoError.message}</p>}
+        {completoError && <p className="text-xs text-red-400">{completoError.message}</p>}
       </div>
     )
   }
@@ -427,7 +338,7 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
             <div>
               <p className="text-sm font-medium text-green-600">Sessões Campanha</p>
               <p className="text-3xl font-bold text-green-900">
-                {formatNumber(processedData.receptivo.sessoesCampanha)}
+                {formatNumber(processedResumoData.receptivo.sessoesCampanha)}
               </p>
             </div>
             <Users className="w-12 h-12 text-green-600" />
@@ -439,7 +350,7 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
             <div>
               <p className="text-sm font-medium text-blue-600">Cliques SaibaMais</p>
               <p className="text-3xl font-bold text-blue-900">
-                {formatNumber(processedData.receptivo.cliquesSaibaMais)}
+                {formatNumber(processedResumoData.receptivo.cliquesSaibaMais)}
               </p>
             </div>
             <MousePointer className="w-12 h-12 text-blue-600" />
@@ -450,21 +361,30 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-purple-600">Duração sessões</p>
-              <p className="text-3xl font-bold text-purple-900">{processedData.receptivo.duracaoSessoes}</p>
+              <p className="text-3xl font-bold text-purple-900">{processedResumoData.receptivo.duracaoSessoes}</p>
             </div>
             <Clock className="w-12 h-12 text-purple-600" />
           </div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-orange-50 to-orange-100">
+        {/* Novos Cards */}
+        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-yellow-50 to-yellow-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-orange-600">Tx de Rejeição</p>
-              <p className="text-3xl font-bold text-orange-900">
-                {processedData.receptivo.taxaRejeicao.toFixed(1)}%
-              </p>
+              <p className="text-sm font-medium text-yellow-600">Sessões Totais</p>
+              <p className="text-3xl font-bold text-yellow-900">{formatNumber(processedCompletoData.totalSessions)}</p>
             </div>
-            <Target className="w-12 h-12 text-orange-600" />
+            <Users className="w-12 h-12 text-yellow-600" />
+          </div>
+        </div>
+
+        <div className="card-overlay rounded-lg shadow-lg p-6 bg-gradient-to-br from-red-50 to-red-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-600">Eventos Totais</p>
+              <p className="text-3xl font-bold text-red-900">{formatNumber(processedCompletoData.totalEvents)}</p>
+            </div>
+            <TrendingUp className="w-12 h-12 text-red-600" />
           </div>
         </div>
       </div>
@@ -473,17 +393,17 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* Dispositivos */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
-          <HorizontalBarChart title="Dispositivo" data={processedData.dispositivos} />
+          <HorizontalBarChart title="Dispositivo" data={processedResumoData.dispositivos} />
         </div>
 
         {/* Veículos que Geraram Mais Sessões */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
-          <HorizontalBarChart title="Veículos - Sessões no Receptivo" data={processedData.veiculosSessoes} />
+          <HorizontalBarChart title="Veículos - Sessões no Receptivo" data={processedResumoData.veiculosSessoes} />
         </div>
 
-        {/* Mapa de Calor */}
+        {/* Mapa de Calor - Usando o novo componente */}
         <div className="card-overlay rounded-lg shadow-lg p-6">
-          <BrazilHeatMap />
+          <BrazilMap regionData={processedResumoData.dadosRegiao} getIntensityColor={getIntensityColor} />
         </div>
       </div>
 

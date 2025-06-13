@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Calendar, Filter } from "lucide-react"
-import { useCartaoPinterestData } from "../../services/api"
+import { useCartaoPinterestData, usePinterestImageData } from "../../services/api" // Importar nova API
 import Loading from "../../components/Loading/Loading"
 
 interface CreativeData {
@@ -11,6 +11,7 @@ interface CreativeData {
   advertiserName: string
   campaignName: string
   adGroupName: string
+  adId: string // Adicionado para o cruzamento de dados
   destinationUrl: string
   promotedPinName: string
   promotedPinStatus: string
@@ -32,10 +33,22 @@ interface CreativeData {
   videoViews50Paid: number
   videoViews75Paid: number
   engagements: number
+  mediaUrl?: string // Adicionado para a URL da mídia
+}
+
+// Função para converter Google Drive view link para direct download link
+const getGoogleDriveDirectLink = (url: string): string | null => {
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)\/view/)
+  if (match && match[1]) {
+    return `https://drive.google.com/uc?export=download&id=${match[1]}`
+  }
+  return null
 }
 
 const CriativosPinterest: React.FC = () => {
-  const { data: apiData, loading, error } = useCartaoPinterestData()
+  const { data: apiData, loading: pinterestLoading, error: pinterestError } = useCartaoPinterestData()
+  const { data: imageData, loading: imageLoading, error: imageError } = usePinterestImageData() // Nova API
+
   const [processedData, setProcessedData] = useState<CreativeData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
@@ -43,11 +56,36 @@ const CriativosPinterest: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
 
-  // Processar dados da API
+  // Processar dados da API principal e de imagens
   useEffect(() => {
     if (apiData?.values) {
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
+
+      // Criar um mapa de Ad ID para URL de mídia
+      const mediaMap = new Map<string, string>()
+      if (imageData?.values) {
+        const imageHeaders = imageData.values[0]
+        const imageRows = imageData.values.slice(1)
+        const creativeNameIndex = imageHeaders.indexOf("Criativo")
+        const urlIndex = imageHeaders.indexOf("URL")
+
+        imageRows.forEach((row: string[]) => {
+          const creativeName = row[creativeNameIndex]
+          const url = row[urlIndex]
+          if (creativeName && url) {
+            // O Criativo na imagem API é "Ad ID_Promoted pin name"
+            const adIdMatch = creativeName.match(/^(\d+)_/)
+            if (adIdMatch && adIdMatch[1]) {
+              const adId = adIdMatch[1]
+              const directLink = getGoogleDriveDirectLink(url)
+              if (directLink) {
+                mediaMap.set(adId, directLink)
+              }
+            }
+          }
+        })
+      }
 
       const processed: CreativeData[] = rows
         .map((row: string[]) => {
@@ -65,6 +103,7 @@ const CriativosPinterest: React.FC = () => {
           const advertiserName = row[headers.indexOf("Advertiser name")] || ""
           const campaignName = row[headers.indexOf("Campaign name")] || ""
           const adGroupName = row[headers.indexOf("Ad group name")] || ""
+          const adId = row[headers.indexOf("Ad ID")] || "" // Extrair Ad ID
           const destinationUrl = row[headers.indexOf("Destination URL")] || ""
           const promotedPinName = row[headers.indexOf("Promoted pin name")] || ""
           const promotedPinStatus = row[headers.indexOf("Promoted pin status")] || ""
@@ -87,11 +126,14 @@ const CriativosPinterest: React.FC = () => {
           const videoViews75Paid = parseInteger(row[headers.indexOf("Video views at 75% paid")])
           const engagements = parseInteger(row[headers.indexOf("Engagements")])
 
+          const mediaUrl = mediaMap.get(adId) // Obter URL da mídia
+
           return {
             date,
             advertiserName,
             campaignName,
             adGroupName,
+            adId,
             destinationUrl,
             promotedPinName,
             promotedPinStatus,
@@ -113,6 +155,7 @@ const CriativosPinterest: React.FC = () => {
             videoViews50Paid,
             videoViews75Paid,
             engagements,
+            mediaUrl,
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
@@ -138,7 +181,7 @@ const CriativosPinterest: React.FC = () => {
       const campaigns = Array.from(campaignSet).filter(Boolean)
       setAvailableCampaigns(campaigns)
     }
-  }, [apiData])
+  }, [apiData, imageData]) // Depende de ambas as APIs
 
   // Filtrar dados
   const filteredData = useMemo(() => {
@@ -254,14 +297,14 @@ const CriativosPinterest: React.FC = () => {
     return text.substring(0, maxLength) + "..."
   }
 
-  if (loading) {
+  if (pinterestLoading || imageLoading) {
     return <Loading message="Carregando criativos Pinterest..." />
   }
 
-  if (error) {
+  if (pinterestError || imageError) {
     return (
       <div className="bg-red-50/90 backdrop-blur-sm border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">Erro ao carregar dados: {error.message}</p>
+        <p className="text-red-600">Erro ao carregar dados: {pinterestError?.message || imageError?.message}</p>
       </div>
     )
   }
@@ -392,6 +435,7 @@ const CriativosPinterest: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-red-600 text-white">
+                <th className="text-left py-3 px-4 font-semibold">Mídia</th> {/* Nova coluna */}
                 <th className="text-left py-3 px-4 font-semibold">Pin</th>
                 <th className="text-left py-3 px-4 font-semibold min-w-[7.5rem]">Status</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
@@ -405,8 +449,34 @@ const CriativosPinterest: React.FC = () => {
             </thead>
             <tbody>
               {paginatedData.map((creative, index) => {
+                const isVideo = creative.creativeType === "VIDEO" && creative.mediaUrl
+                const isImage = creative.creativeType === "REGULAR" && creative.mediaUrl
+
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-red-50" : "bg-white"}>
+                    <td className="py-3 px-4 w-[100px] h-[100px] flex items-center justify-center">
+                      {isVideo ? (
+                        <video controls className="max-w-full max-h-full object-contain rounded-md">
+                          <source src={creative.mediaUrl} type="video/mp4" />
+                          Seu navegador não suporta o elemento de vídeo.
+                        </video>
+                      ) : isImage ? (
+                        <img
+                          src={creative.mediaUrl || "/placeholder.svg"}
+                          alt={creative.promotedPinName}
+                          className="max-w-full max-h-full object-contain rounded-md"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            if (target.parentElement) {
+                              target.parentElement.innerHTML =
+                                '<div class="text-xs text-gray-400 text-center">Erro ao carregar imagem</div>'
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="text-xs text-gray-400 text-center">Sem mídia</div>
+                      )}
+                    </td>
                     <td className="py-3 px-4">
                       <div className="">
                         <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">

@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 import axios from "axios"
 
 const API_BASE_URL = "https://api-google-sheets-7zph.vercel.app"
@@ -185,32 +185,6 @@ export const useResumoData = () => {
   return { data, loading, error, refetch: loadData }
 }
 
-// Hook personalizado para usar os dados do GA4 resumo
-export const useGA4ResumoData = () => {
-  const [data, setData] = React.useState<any>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<Error | null>(null)
-
-  const loadData = React.useCallback(async () => {
-    try {
-      setLoading(true)
-      const result = await fetchGA4ResumoData()
-      setData(result)
-      setError(null)
-    } catch (err) {
-      setError(err as Error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  return { data, loading, error, refetch: loadData }
-}
-
 // NOVOS HOOKS PARA OS CRIATIVOS
 // Hook personalizado para usar os dados do Meta
 export const useCartaoMetaData = () => {
@@ -248,32 +222,6 @@ export const useCartaoTikTokData = () => {
     try {
       setLoading(true)
       const result = await fetchCartaoTikTokData()
-      setData(result)
-      setError(null)
-    } catch (err) {
-      setError(err as Error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  return { data, loading, error, refetch: loadData }
-}
-
-// Hook personalizado para usar os dados do Pinterest
-export const useCartaoPinterestData = () => {
-  const [data, setData] = React.useState<any>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<Error | null>(null)
-
-  const loadData = React.useCallback(async () => {
-    try {
-      setLoading(true)
-      const result = await fetchCartaoPinterestData()
       setData(result)
       setError(null)
     } catch (err) {
@@ -412,4 +360,147 @@ export const useCombinedData = () => {
       shareData.refetch()
     },
   }
+}
+
+
+// Tipos de dados para as APIs
+interface GA4ResumoData {
+  range: string
+  majorDimension: string
+  values: string[][]
+}
+
+interface GA4CompletoData {
+  range: string
+  majorDimension: string
+  values: string[][]
+}
+
+interface CartaoPinterestData {
+  range: string
+  majorDimension: string
+  values: string[][]
+}
+
+interface PinterestImageData {
+  range: string
+  majorDimension: string
+  values: string[][]
+}
+
+// Hook para dados GA4 Resumo (mantido para o mapa de calor de região)
+export const useGA4ResumoData = () => {
+  const [data, setData] = useState<GA4ResumoData | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Simulação de fetch de dados
+        const response = await fetch("/resposta-ga4-resumo-KQBK42rFNR4n5j515BaYJSwATFRea7.json")
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const result: GA4ResumoData = await response.json()
+        setData(result)
+      } catch (e) {
+        setError(e as Error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  return { data, loading, error }
+}
+
+// NOVO Hook para dados GA4 Completo
+export const useGA4CompletoData = () => {
+  const [data, setData] = useState<GA4CompletoData | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetch("/resposta-ga4-completo-5ZWtavjiY5Ry8YPkM7UsdAgbQ4uBK4.json")
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const result: GA4CompletoData = await response.json()
+        setData(result)
+      } catch (e) {
+        setError(e as Error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  return { data, loading, error }
+}
+
+// Hook para dados do Pinterest (mantido)
+export const useCartaoPinterestData = () => {
+  const [data, setData] = useState<CartaoPinterestData | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetch("/resposta-pinterest-uGiEeWePZ9Z3prfCm2dauvWm3gUKAq.json")
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const result: CartaoPinterestData = await response.json()
+        setData(result)
+      } catch (e) {
+        setError(e as Error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  return { data, loading, error }
+}
+
+// NOVO Hook para dados de Imagem do Pinterest
+export const usePinterestImageData = () => {
+  const [data, setData] = useState<PinterestImageData | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetch("/resposta-pinterest-imagem-tyjIrb2WqS2vNjvjFoBC1FwYqtegOY.json")
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const result: PinterestImageData = await response.json()
+        setData(result)
+      } catch (e) {
+        setError(e as Error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  return { data, loading, error }
 }
