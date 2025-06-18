@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const AUTHORIZED_EMAILS = [
   "luiz.coelho@naccom.com.br",
   "luiz02coelho@gmail.com",
+  "diogo.bobsin@gmail.com",
 ]
 
 // Domínios autorizados (permite qualquer email desses domínios)
