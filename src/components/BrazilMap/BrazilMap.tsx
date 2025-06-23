@@ -231,35 +231,12 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-lg p-6">
-        {/* Representação visual simplificada */}
-        <div className="mb-6 p-4 bg-gradient-to-br from-blue-50 to-green-50 rounded-lg text-center">
-          <svg
-            className="w-16 h-16 text-blue-500 mx-auto mb-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-            ></path>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-            ></path>
-          </svg>
-          <h4 className="text-lg font-semibold text-gray-800 mb-2">Distribuição Geográfica</h4>
+        <h4 className="text-lg font-semibold text-gray-800 mb-2">Distribuição Geográfica</h4>
           <p className="text-sm text-gray-600">
             Análise de {formatNumber(Object.values(regionData).reduce((a, b) => a + b, 0))} sessões distribuídas em{" "}
             {Object.keys(regionData).length} regiões
           </p>
-        </div>
-
+        
         {/* Mapa SVG */}
         <div className="relative w-full h-[500px] bg-gray-50 rounded-lg overflow-hidden">
           <svg ref={svgRef} width="100%" height="100%" viewBox="0 0 600 500" className="block" />

@@ -435,110 +435,106 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
 
   return (
     <div className="space-y-6 h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <TrendingUp className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 text-enhanced">Tráfego e Engajamento</h1>
-            <p className="text-gray-600">Receptivo da campanha</p>
-          </div>
-        </div>
-        <div className="text-sm text-gray-600 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-lg">
-          Última atualização: {new Date().toLocaleString("pt-BR")}
-        </div>
-      </div>
-
-      {/* Filtro de Data */}
-      <div className="card-overlay rounded-lg shadow-lg p-4">
-        <div className="max-w-md">
-          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-            <Calendar className="w-4 h-4 mr-2" />
-            Período de Análise
-          </label>
-          <div className="grid grid-cols-2 gap-3">
+      {/* Título e Subtítulo */}
+          <div className="col-span-3 flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Data Inicial</label>
+              <h1 className="text-xl font-bold text-gray-900">Tráfego e Engajamento</h1>
+              <p className="text-xs text-gray-600">Receptivo da campanha</p>
+            </div>
+          </div>
+      {/* Header Compacto com Filtro de Data e Cards de Métricas */}
+      <div className="card-overlay rounded-lg shadow-lg p-4">
+        <div className="grid grid-cols-12 gap-4 items-center">
+          
+
+          {/* Filtro de Data */}
+          <div className="col-span-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
+              <Calendar className="w-3 h-3 mr-1" />
+              Período de Análise
+            </label>
+            <div className="grid grid-cols-2 gap-2">
               <input
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Data Final</label>
               <input
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Período selecionado: {new Date(dateRange.start).toLocaleDateString("pt-BR")} até{" "}
-            {new Date(dateRange.end).toLocaleDateString("pt-BR")}
-          </p>
-        </div>
-      </div>
 
-      {/* Cards de Métricas Principais - Ajustado para 5 cards em uma linha */}
-      <div className="grid grid-cols-5 gap-4">
-        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-green-50 to-green-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-green-600">Sessões Campanha</p>
-              <p className="text-2xl font-bold text-green-900">
-                {formatNumber(processedResumoData.receptivo.sessoesCampanha)}
-              </p>
+          {/* Cards de Métricas - 5 cards ocupando 8 colunas */}
+          <div className="col-span-8 grid grid-cols-5 gap-3">
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-green-600">Sessões Campanha</p>
+                  <p className="text-lg font-bold text-green-900">
+                    {formatNumber(processedResumoData.receptivo.sessoesCampanha)}
+                  </p>
+                </div>
+                <Users className="w-6 h-6 text-green-600" />
+              </div>
             </div>
-            <Users className="w-10 h-10 text-green-600" />
+
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-blue-600">Cliques SaibaMais</p>
+                  <p className="text-lg font-bold text-blue-900">
+                    {formatNumber(processedResumoData.receptivo.cliquesSaibaMais)}
+                  </p>
+                </div>
+                <MousePointer className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-purple-600">Duração sessões</p>
+                  <p className="text-lg font-bold text-purple-900">{processedResumoData.receptivo.duracaoSessoes}</p>
+                </div>
+                <Clock className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-yellow-600">Sessões Totais</p>
+                  <p className="text-lg font-bold text-yellow-900">{formatNumber(processedSourceData.totalSessions)}</p>
+                </div>
+                <BarChart3 className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-red-600">Eventos Totais</p>
+                  <p className="text-lg font-bold text-red-900">{formatNumber(processedCompletoData.totalEvents)}</p>
+                </div>
+                <TrendingUp className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-blue-50 to-blue-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-blue-600">Cliques SaibaMais</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {formatNumber(processedResumoData.receptivo.cliquesSaibaMais)}
-              </p>
-            </div>
-            <MousePointer className="w-10 h-10 text-blue-600" />
-          </div>
-        </div>
-
-        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-purple-50 to-purple-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-purple-600">Duração sessões</p>
-              <p className="text-2xl font-bold text-purple-900">{processedResumoData.receptivo.duracaoSessoes}</p>
-            </div>
-            <Clock className="w-10 h-10 text-purple-600" />
-          </div>
-        </div>
-
-        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-yellow-50 to-yellow-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-yellow-600">Sessões Source</p>
-              <p className="text-2xl font-bold text-yellow-900">{formatNumber(processedSourceData.totalSessions)}</p>
-            </div>
-            <BarChart3 className="w-10 h-10 text-yellow-600" />
-          </div>
-        </div>
-
-        <div className="card-overlay rounded-lg shadow-lg p-4 bg-gradient-to-br from-red-50 to-red-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-red-600">Eventos Totais</p>
-              <p className="text-2xl font-bold text-red-900">{formatNumber(processedCompletoData.totalEvents)}</p>
-            </div>
-            <TrendingUp className="w-10 h-10 text-red-600" />
-          </div>
+        {/* Período selecionado - linha inferior */}
+        <div className="mt-2 text-xs text-gray-500">
+          Período selecionado: {new Date(dateRange.start).toLocaleDateString("pt-BR")} até{" "}
+          {new Date(dateRange.end).toLocaleDateString("pt-BR")} | Última atualização:{" "}
+          {new Date().toLocaleString("pt-BR")}
         </div>
       </div>
 
@@ -621,39 +617,7 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
           />
         </div>
       </div>
-
-      {/* Seção de Insights Detalhados (Nova funcionalidade) */}
-      <div className="card-overlay rounded-lg shadow-lg p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <PieChart className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Insights Detalhados por Fonte</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(processedSourceData.fontesPorPlataforma).map(([plataforma, fontes]) => (
-            <div key={plataforma} className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                <div
-                  className="w-3 h-3 rounded-full mr-2"
-                  style={{ backgroundColor: getPlataformaColor(plataforma) }}
-                />
-                {plataforma}
-              </h4>
-              <div className="space-y-1">
-                {Object.entries(fontes)
-                  .sort(([, a], [, b]) => (b as number) - (a as number))
-                  .slice(0, 3)
-                  .map(([fonte, sessoes]) => (
-                    <div key={fonte} className="flex justify-between text-sm">
-                      <span className="text-gray-600 truncate">{fonte}</span>
-                      <span className="text-gray-900 font-medium">{formatNumber(sessoes as number)}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      
 
       {/* Observações */}
       <div className="card-overlay rounded-lg shadow-lg p-4">

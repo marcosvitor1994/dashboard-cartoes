@@ -185,13 +185,10 @@ const CriativosLinkedIn: React.FC = () => {
       impressions: filteredData.reduce((sum, item) => sum + item.impressions, 0),
       reach: filteredData.reduce((sum, item) => sum + item.reach, 0),
       clicks: filteredData.reduce((sum, item) => sum + item.clicks, 0),
-      videoViews: filteredData.reduce((sum, item) => sum + item.videoViews, 0),
-      videoCompletions: filteredData.reduce((sum, item) => sum + item.videoCompletions, 0),
       totalEngagements: filteredData.reduce((sum, item) => sum + item.totalEngagements, 0),
       avgCpm: 0,
       avgCpc: 0,
       ctr: 0,
-      vtr: 0,
     }
   }, [filteredData])
 
@@ -200,7 +197,6 @@ const CriativosLinkedIn: React.FC = () => {
     totals.avgCpm = totals.impressions > 0 ? totals.investment / (totals.impressions / 1000) : 0
     totals.avgCpc = totals.clicks > 0 ? totals.investment / totals.clicks : 0
     totals.ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
-    totals.vtr = totals.impressions > 0 ? (totals.videoCompletions / totals.impressions) * 100 : 0
   }
 
   // Função para formatar números
@@ -370,14 +366,16 @@ const CriativosLinkedIn: React.FC = () => {
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Vídeo Views</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Engajamentos</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">VTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CPC</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CPM</th>
               </tr>
             </thead>
             <tbody>
               {paginatedData.map((creative, index) => {
-                const vtr = creative.impressions > 0 ? (creative.videoCompletions / creative.impressions) * 100 : 0
+                const cpc = creative.clicks > 0 ? creative.totalSpent / creative.clicks : 0
+                const ctr = creative.impressions > 0 ? (creative.clicks / creative.impressions) * 100 : 0
+                const cpm = creative.impressions > 0 ? creative.totalSpent / (creative.impressions / 1000) : 0
 
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
@@ -425,9 +423,9 @@ const CriativosLinkedIn: React.FC = () => {
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.clicks)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.videoViews)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.totalEngagements)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{vtr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatCurrency(cpc)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{ctr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatCurrency(cpm)}</td>
                   </tr>
                 )
               })}
