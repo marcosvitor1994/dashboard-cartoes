@@ -170,6 +170,17 @@ export const fetchGA4CompletoData = async () => {
   }
 }
 
+// NOVA FUNÇÃO para buscar dados do GA4 Source
+export const fetchGA4SourceData = async () => {
+  try {
+    const response = await api.get("/cartao/ga4-source")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados do GA4 source:", error)
+    throw error
+  }
+}
+
 // Função para buscar dados de imagem do Pinterest
 export const fetchPinterestImageData = async () => {
   try {
@@ -397,6 +408,12 @@ interface GA4CompletoData {
   values: string[][]
 }
 
+interface GA4SourceData {
+  range: string
+  majorDimension: string
+  values: string[][]
+}
+
 interface CartaoPinterestData {
   range: string
   majorDimension: string
@@ -445,6 +462,32 @@ export const useGA4CompletoData = () => {
     try {
       setLoading(true)
       const result = await fetchGA4CompletoData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// NOVO Hook para dados GA4 Source
+export const useGA4SourceData = () => {
+  const [data, setData] = useState<GA4SourceData | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchGA4SourceData()
       setData(result)
       setError(null)
     } catch (err) {

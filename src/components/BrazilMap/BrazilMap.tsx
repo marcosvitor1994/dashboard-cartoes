@@ -151,11 +151,12 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
         const stateName = d.properties.name
         const sessions = regionData[stateName] || 0
 
+        // Get mouse position relative to the page
         const [x, y] = d3.pointer(event, document.body)
         setTooltip({
           visible: true,
-          x: x + 10,
-          y: y - 10,
+          x: x + 15, // Slightly more offset for better visibility
+          y: y - 15,
           stateName: stateName,
           sessions: sessions,
         })
@@ -204,24 +205,25 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
 
   // Helper to format numbers for tooltip
   const formatNumber = (value: number): string => {
+    if (value === 0) return "0 sessões"
     if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)} mi`
+      return `${(value / 1000000).toFixed(1).replace(".", ",")} mi sessões`
     }
     if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)} mil`
+      return `${(value / 1000).toFixed(1).replace(".", ",")} mil sessões`
     }
-    return value.toLocaleString("pt-BR")
+    return `${value.toLocaleString("pt-BR")} sessões`
   }
 
   // Generate legend data
   const legendData = useMemo(
     () => [
       { label: "Sem dados", color: "#e5e7eb" },
-      { label: "Muito Baixo", color: "#6b7280" }, // Cinza
-      { label: "Baixo", color: "#10b981" }, // Verde
-      { label: "Médio", color: "#eab308" }, // Amarelo
-      { label: "Alto", color: "#f59e0b" }, // Laranja
-      { label: "Muito Alto", color: "#dc2626" }, // Vermelho forte
+      { label: "Muito Baixo", color: "#B2E2F2" },
+      { label: "Baixo", color: "#66C2E3" },
+      { label: "Médio", color: "#2CA2D0" },
+      { label: "Alto", color: "#006ECE" },
+      { label: "Muito Alto", color: "#003E8A" },
     ],
     [],
   )
@@ -266,22 +268,24 @@ const BrazilMap: React.FC<BrazilMapProps> = ({ regionData, getIntensityColor }) 
           {tooltip.visible && (
             <div
               style={{
-                position: "fixed", // Use fixed to position relative to viewport
+                position: "fixed",
                 left: tooltip.x,
                 top: tooltip.y,
-                background: "white",
-                border: "1px solid #e2e8f0",
-                borderRadius: "0.375rem", // rounded-md
-                padding: "0.75rem", // p-3
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // shadow-lg
-                fontSize: "0.875rem", // text-sm
+                background: "rgba(0, 0, 0, 0.9)",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                padding: "0.75rem 1rem",
+                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                fontSize: "0.875rem",
                 zIndex: 1000,
-                maxWidth: "150px",
-                pointerEvents: "none", // Ensures tooltip doesn't block mouse events on map
+                maxWidth: "200px",
+                pointerEvents: "none",
+                fontWeight: "500",
               }}
             >
-              <div className="font-semibold text-gray-900 mb-1">{tooltip.stateName}</div>
-              <div className="text-gray-700">Sessões: {formatNumber(tooltip.sessions)}</div>
+              <div className="font-semibold mb-1">{tooltip.stateName}</div>
+              <div className="text-blue-200">{formatNumber(tooltip.sessions)}</div>
             </div>
           )}
         </div>

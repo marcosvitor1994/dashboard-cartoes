@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Calendar, Filter } from "lucide-react"
 import { useCartaoPinterestData, usePinterestImageData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
+import CreativeModal from "./components/CreativeModal"
 
 interface CreativeData {
   date: string
@@ -59,17 +60,33 @@ const CriativosPinterest: React.FC = () => {
   const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
-  const [debugInfo, setDebugInfo] = useState<{ mediaMapSize: number; processedItems: number }>({ 
-    mediaMapSize: 0, 
-    processedItems: 0 
+  const [debugInfo, setDebugInfo] = useState<{ mediaMapSize: number; processedItems: number }>({
+    mediaMapSize: 0,
+    processedItems: 0,
   })
+
+  // Estados para o modal
+  const [selectedCreative, setSelectedCreative] = useState<CreativeData | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Função para abrir o modal
+  const openCreativeModal = (creative: CreativeData) => {
+    setSelectedCreative(creative)
+    setIsModalOpen(true)
+  }
+
+  // Função para fechar o modal
+  const closeCreativeModal = () => {
+    setSelectedCreative(null)
+    setIsModalOpen(false)
+  }
 
   // Processar dados da API principal e de imagens
   useEffect(() => {
     console.log("=== Iniciando processamento de dados do Pinterest ===") // Debug
     console.log("API Data disponível:", !!apiData?.values, "Rows:", apiData?.values?.length) // Debug
     console.log("Image Data disponível:", !!imageData?.values, "Rows:", imageData?.values?.length) // Debug
-    
+
     if (apiData?.values) {
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
@@ -81,7 +98,7 @@ const CriativosPinterest: React.FC = () => {
         const imageHeaders = imageData.values[0]
         const adIdColIndex = imageHeaders.indexOf("Ad ID")
         const urlColIndex = imageHeaders.indexOf("URL")
-        
+
         console.log("Image headers:", imageHeaders) // Debug
         console.log("Ad ID column index:", adIdColIndex, "URL column index:", urlColIndex) // Debug
 
@@ -95,8 +112,8 @@ const CriativosPinterest: React.FC = () => {
 
             if (adIdRaw && url) {
               // Extrair apenas o ID numérico, removendo qualquer sufixo após underscore
-              const adIdToMap = adIdRaw.split('_')[0].trim()
-              
+              const adIdToMap = adIdRaw.split("_")[0].trim()
+
               const embedLink = getGoogleDriveEmbedLink(url)
               mediaMap.set(adIdToMap, embedLink)
               console.log(`Mapped Ad ID: ${adIdToMap} to URL: ${embedLink}`) // Debug
@@ -105,7 +122,7 @@ const CriativosPinterest: React.FC = () => {
         }
         console.log(`Total de mídias mapeadas: ${mediaMap.size}`) // Debug
         console.log("Mapa de mídias:", Array.from(mediaMap.entries())) // Debug
-        setDebugInfo(prev => ({ ...prev, mediaMapSize: mediaMap.size })) // Atualizar debug info
+        setDebugInfo((prev) => ({ ...prev, mediaMapSize: mediaMap.size })) // Atualizar debug info
       }
 
       const processed: CreativeData[] = rows
@@ -186,7 +203,7 @@ const CriativosPinterest: React.FC = () => {
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
       setProcessedData(processed)
-      setDebugInfo(prev => ({ ...prev, processedItems: processed.length })) // Atualizar debug info
+      setDebugInfo((prev) => ({ ...prev, processedItems: processed.length })) // Atualizar debug info
 
       // Definir range de datas inicial
       if (processed.length > 0) {
@@ -258,8 +275,31 @@ const CriativosPinterest: React.FC = () => {
       frequency: item.reach > 0 ? item.impressions / item.reach : 0,
     }))
 
-    // Ordenar por investimento (custo) decrescente
-    finalData.sort((a, b) => b.cost - a.cost)
+    // Ordenar primeiro por status (ACTIVE primeiro, PAUSED por último), depois por investimento
+    finalData.sort((a, b) => {
+      // Definir prioridade dos status
+      const getStatusPriority = (status: string) => {
+        switch (status) {
+          case "ACTIVE":
+            return 1
+          case "PAUSED":
+            return 2
+          default:
+            return 3 // Outros status ficam no final
+        }
+      }
+
+      const statusA = getStatusPriority(a.promotedPinStatus)
+      const statusB = getStatusPriority(b.promotedPinStatus)
+
+      // Se os status são diferentes, ordenar por prioridade
+      if (statusA !== statusB) {
+        return statusA - statusB
+      }
+
+      // Se os status são iguais, ordenar por investimento decrescente
+      return b.cost - a.cost
+    })
 
     return finalData
   }, [processedData, selectedCampaign, dateRange])
@@ -408,8 +448,7 @@ const CriativosPinterest: React.FC = () => {
               {filteredData.length} pins encontrados
             </div>
           </div>
-        </div>        
-        
+        </div>
       </div>
 
       {/* Métricas Principais */}
@@ -480,31 +519,58 @@ const CriativosPinterest: React.FC = () => {
                     <td className="py-3 px-4 w-[100px] h-[100px]">
                       <div className="w-full h-full flex items-center justify-center">
                         {creative.mediaUrl ? (
-                          <iframe 
-                            src={creative.mediaUrl}
-                            className="w-full h-full rounded-md"
-                            frameBorder="0"
-                            allow="autoplay"
-                            sandbox="allow-scripts allow-same-origin"
-                            onError={(e) => {
-                              console.error(`Erro ao carregar mídia para Ad ID: ${creative.adId}`, e)
-                              const target = e.target as HTMLIFrameElement
-                              if (target.parentElement) {
-                                target.parentElement.innerHTML = `
-                                  <div class="text-xs text-gray-400 text-center p-2">
-                                    <div>Mídia não disponível</div>
-                                    <div class="text-[10px] mt-1">ID: ${creative.adId}</div>
-                                    <div class="text-[10px] mt-1">Tipo: ${creative.creativeType || 'N/A'}</div>
-                                  </div>
-                                `
-                              }
-                            }}
-                          />
+                          <div
+                            className="w-full h-full rounded-md cursor-pointer hover:opacity-80 transition-opacity relative group"
+                            onClick={() => openCreativeModal(creative)}
+                          >
+                            <iframe
+                              src={creative.mediaUrl}
+                              className="w-full h-full rounded-md pointer-events-none"
+                              frameBorder="0"
+                              allow="autoplay"
+                              sandbox="allow-scripts allow-same-origin"
+                              onError={(e) => {
+                                console.error(`Erro ao carregar mídia para Ad ID: ${creative.adId}`, e)
+                                const target = e.target as HTMLIFrameElement
+                                if (target.parentElement) {
+                                  target.parentElement.innerHTML = `
+                                    <div class="text-xs text-gray-400 text-center p-2 cursor-pointer">
+                                      <div>Mídia não disponível</div>
+                                      <div class="text-[10px] mt-1">ID: ${creative.adId}</div>
+                                      <div class="text-[10px] mt-1">Tipo: ${creative.creativeType || "N/A"}</div>
+                                    </div>
+                                  `
+                                }
+                              }}
+                            />
+                            {/* Overlay para indicar que é clicável */}
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-md flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 rounded-full p-2">
+                                <svg
+                                  className="w-6 h-6 text-gray-700"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md">
+                          <div
+                            className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                            onClick={() => openCreativeModal(creative)}
+                          >
                             <div className="text-xs text-gray-400 text-center p-2">
                               <div>Sem mídia</div>
                               <div className="text-[10px] mt-1">ID: {creative.adId}</div>
+                              <div className="text-[10px] mt-1">Clique para detalhes</div>
                             </div>
                           </div>
                         )}
@@ -577,6 +643,9 @@ const CriativosPinterest: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal do Criativo */}
+      <CreativeModal creative={selectedCreative} isOpen={isModalOpen} onClose={closeCreativeModal} />
     </div>
   )
 }

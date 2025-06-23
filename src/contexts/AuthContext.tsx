@@ -40,6 +40,8 @@ const AUTHORIZED_EMAILS = [
   "luiz.coelho@naccom.com.br",
   "luiz02coelho@gmail.com",
   "diogo.bobsin@gmail.com",
+  "marcosvitor1994@gmail.com",
+  "vitor.checkmedia@gmail.com"
 ]
 
 // Domínios autorizados (permite qualquer email desses domínios)

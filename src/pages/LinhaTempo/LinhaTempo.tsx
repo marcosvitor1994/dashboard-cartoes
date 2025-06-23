@@ -231,16 +231,13 @@ const LinhaTempo: React.FC = () => {
       case "totalSpent":
         return item.totalSpent || 0
       case "videoViews":
-        return item.videoViews || item.videoCompletions || 0 // Usar videoCompletions como fallback para views
+        return item.videoViews || item.videoCompletions || 0
+      // Para métricas compostas, retornamos os valores base para agregação posterior
       case "cpm":
-        return item.impressions > 0 ? (item.totalSpent / item.impressions) * 1000 : 0
       case "cpc":
-        return item.clicks > 0 ? item.totalSpent / item.clicks : 0
       case "ctr":
-        return item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0
       case "vtr":
-        const totalViews = item.videoViews || item.videoCompletions || 0
-        return item.impressions > 0 ? (totalViews / item.impressions) * 100 : 0
+        return 0 // Será calculado na agregação
       default:
         return 0
     }
@@ -248,24 +245,55 @@ const LinhaTempo: React.FC = () => {
 
   // Preparar dados para o gráfico
   const chartData: ChartData[] = useMemo(() => {
+    // Função para calcular métricas compostas de um grupo de dados
+    const calculateCompositeMetric = (dayData: DataPoint[], metric: typeof selectedMetric): number => {
+      if (!dayData || dayData.length === 0) return 0
+
+      const totalCost = dayData.reduce((sum, item) => sum + (item.totalSpent || 0), 0)
+      const totalImpressions = dayData.reduce((sum, item) => sum + (item.impressions || 0), 0)
+      const totalClicks = dayData.reduce((sum, item) => sum + (item.clicks || 0), 0)
+      const totalViews = dayData.reduce((sum, item) => sum + (item.videoViews || item.videoCompletions || 0), 0)
+
+      switch (metric) {
+        case "impressions":
+          return totalImpressions
+        case "clicks":
+          return totalClicks
+        case "totalSpent":
+          return totalCost
+        case "videoViews":
+          return totalViews
+        case "cpm":
+          return totalImpressions > 0 ? (totalCost / totalImpressions) * 1000 : 0
+        case "cpc":
+          return totalClicks > 0 ? totalCost / totalClicks : 0
+        case "ctr":
+          return totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
+        case "vtr":
+          return totalImpressions > 0 ? (totalViews / totalImpressions) * 100 : 0
+        default:
+          return 0
+      }
+    }
+
     if (selectedVehicles.length === 0) {
       // Agregação para uma única linha (todos os veículos)
       const groupedByDate = filteredData.reduce(
         (acc, item) => {
           const date = item.date
           if (!acc[date]) {
-            acc[date] = 0
+            acc[date] = []
           }
-          acc[date] += getMetricValue(item, selectedMetric)
+          acc[date].push(item)
           return acc
         },
-        {} as Record<string, number>,
+        {} as Record<string, DataPoint[]>,
       )
 
       const data = Object.entries(groupedByDate)
-        .map(([date, value]) => ({
+        .map(([date, dayData]) => ({
           x: date,
-          y: value,
+          y: calculateCompositeMetric(dayData, selectedMetric),
         }))
         .sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime())
 
@@ -277,7 +305,7 @@ const LinhaTempo: React.FC = () => {
       ]
     } else {
       // Múltiplas linhas para veículos selecionados
-      const seriesMap: Record<string, Record<string, number>> = {}
+      const seriesMap: Record<string, Record<string, DataPoint[]>> = {}
 
       selectedVehicles.forEach((vehicle) => {
         seriesMap[vehicle] = {}
@@ -287,18 +315,18 @@ const LinhaTempo: React.FC = () => {
         if (selectedVehicles.includes(item.platform)) {
           const date = item.date
           if (!seriesMap[item.platform][date]) {
-            seriesMap[item.platform][date] = 0
+            seriesMap[item.platform][date] = []
           }
-          seriesMap[item.platform][date] += getMetricValue(item, selectedMetric)
+          seriesMap[item.platform][date].push(item)
         }
       })
 
       const result: ChartData[] = []
       Object.entries(seriesMap).forEach(([platform, dataByDate]) => {
         const data = Object.entries(dataByDate)
-          .map(([date, value]) => ({
+          .map(([date, dayData]) => ({
             x: date,
-            y: value,
+            y: calculateCompositeMetric(dayData, selectedMetric),
           }))
           .sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime())
         result.push({
@@ -306,7 +334,7 @@ const LinhaTempo: React.FC = () => {
           data,
         })
       })
-      return result.sort((a, b) => a.id.localeCompare(b.id)) // Ordenar por nome da plataforma
+      return result.sort((a, b) => a.id.localeCompare(b.id))
     }
   }, [filteredData, selectedVehicles, selectedMetric])
 
@@ -659,9 +687,7 @@ const LinhaTempo: React.FC = () => {
                 }
                 tooltip={({ point }) => (
                   <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                    <div className="text-sm font-medium text-gray-900">
-                      Data: {new Date(point.data.x as string).toLocaleDateString("pt-BR")}
-                    </div>
+                    <div className="text-sm font-medium text-gray-900">Data: {point.data.x as string}</div>
                     <div className="text-sm text-gray-600">
                       {point.seriesId}: {formatChartValue(point.data.y as number)}
                     </div>
