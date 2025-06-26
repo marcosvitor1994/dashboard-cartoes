@@ -37,18 +37,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Emails específicos autorizados
 const AUTHORIZED_EMAILS = [
-  "luiz.coelho@naccom.com.br",
-  "luiz02coelho@gmail.com",
   "diogo.bobsin@gmail.com",
-  "marcosvitor1994@gmail.com",
-  "vitor.checkmedia@gmail.com"
+  "creative-bsb@artplan.com.br", 
 ]
 
-// Domínios autorizados (permite qualquer email desses domínios)
-// Funciona para:
-// - Google Workspace corporativo (G Suite)
-// - Contas Google pessoais criadas com email corporativo
-// - Qualquer conta Google que use esses domínios
 const AUTHORIZED_DOMAINS = [
   "naccom.com.br",
   "bb.com.br",
