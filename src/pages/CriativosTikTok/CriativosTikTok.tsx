@@ -35,6 +35,7 @@ interface CreativeData {
   pontuacaoCriativo?: number
   tipoCompra?: string
   videoEstaticoAudio?: string
+  ctr: number
 }
 
 const CriativosTikTok: React.FC = () => {
@@ -127,6 +128,7 @@ const CriativosTikTok: React.FC = () => {
             pontuacaoCriativo: scoreData?.pontuacao,
             tipoCompra: scoreData?.tipoCompra,
             videoEstaticoAudio: scoreData?.videoEstaticoAudio,
+            ctr: 0,
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
@@ -207,6 +209,7 @@ const CriativosTikTok: React.FC = () => {
       cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
       cpc: item.clicks > 0 ? item.cost / item.clicks : 0,
       frequency: item.reach > 0 ? item.impressions / item.reach : 0,
+      ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
     }))
 
     finalData.sort((a, b) => {
@@ -455,6 +458,7 @@ const CriativosTikTok: React.FC = () => {
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR / VTR</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Tipo Compra</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Formato</th>
                 <th
@@ -512,6 +516,20 @@ const CriativosTikTok: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.clicks)}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">
+                      {creative.videoEstaticoAudio?.toLowerCase().includes("video") ? (
+                        <>
+                          {creative.impressions > 0
+                            ? ((creative.videoViews100 / creative.impressions) * 100).toFixed(2)
+                            : "0.00"}
+                          %<span className="text-xs text-gray-400 ml-1">VTR</span>
+                        </>
+                      ) : (
+                        <>
+                          {creative.ctr.toFixed(2)}%<span className="text-xs text-gray-400 ml-1">CTR</span>
+                        </>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.tipoCompra || "-"}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.videoEstaticoAudio || "-"}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem] font-bold">

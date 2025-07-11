@@ -451,7 +451,7 @@ const CriativosMetaAds: React.FC = () => {
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR / VTR</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Tipo Compra</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Formato</th>
                 <th
@@ -506,7 +506,18 @@ const CriativosMetaAds: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.linkClicks)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{ctr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">
+                      {creative.videoEstaticoAudio?.toLowerCase().includes("video") ? (
+                        <>
+                          {((creative.videoWatches100 / creative.impressions) * 100).toFixed(2)}%{" "}
+                          <span className="text-xs text-gray-400 ml-1">VTR</span>
+                        </>
+                      ) : (
+                        <>
+                          {ctr.toFixed(2)}% <span className="text-xs text-gray-400 ml-1">CTR</span>
+                        </>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.tipoCompra || "-"}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.videoEstaticoAudio || "-"}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem] font-bold">
