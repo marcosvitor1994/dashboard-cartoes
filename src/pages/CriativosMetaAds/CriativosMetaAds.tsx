@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Share2, Calendar, Filter } from "lucide-react"
-import { useCartaoMetaData } from "../../services/api"
+import { Share2, Calendar, Filter, ArrowUpDown } from "lucide-react"
+import { useCartaoMetaData, usePontuacaoMetaData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface CreativeData {
@@ -29,22 +29,53 @@ interface CreativeData {
   videoPlayActions: number
   landingPageViews: number
   cpm: number
+  pontuacaoCriativo?: number
+  tipoCompra?: string
+  videoEstaticoAudio?: string
 }
 
 const CriativosMetaAds: React.FC = () => {
   const { data: apiData, loading, error } = useCartaoMetaData()
+  const { data: pontuacaoData, loading: pontuacaoLoading, error: pontuacaoError } = usePontuacaoMetaData()
+
   const [processedData, setProcessedData] = useState<CreativeData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
   const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
+
+  // New filters state
+  const [selectedTipoCompra, setSelectedTipoCompra] = useState<string>("")
+  const [availableTiposCompra, setAvailableTiposCompra] = useState<string[]>([])
+  const [selectedVideoEstaticoAudio, setSelectedVideoEstaticoAudio] = useState<string>("")
+  const [availableVideoEstaticoAudio, setAvailableVideoEstaticoAudio] = useState<string[]>([])
 
   // Processar dados da API
   useEffect(() => {
-    if (apiData?.values) {
+    if (apiData?.values && pontuacaoData?.values) {
+      const pontuacaoHeaders = pontuacaoData.values[0]
+      const pontuacaoRows = pontuacaoData.values.slice(1)
+      const pontuacaoMap = new Map<string, any>()
+      pontuacaoRows.forEach((row: string[]) => {
+        const creativeTitle = row[pontuacaoHeaders.indexOf("Creative title")]
+        if (creativeTitle) {
+          pontuacaoMap.set(creativeTitle.trim(), {
+            pontuacao: Number.parseFloat(
+              row[pontuacaoHeaders.indexOf("Pontuacao de criativo")]?.replace(",", ".") || "0",
+            ),
+            tipoCompra: row[pontuacaoHeaders.indexOf("Tipo de Compra")],
+            videoEstaticoAudio: row[pontuacaoHeaders.indexOf("video_estatico_audio")],
+          })
+        }
+      })
+
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
+
+      const tiposCompraSet = new Set<string>()
+      const videoEstaticoAudioSet = new Set<string>()
 
       const processed: CreativeData[] = rows
         .map((row: string[]) => {
@@ -58,60 +89,46 @@ const CriativosMetaAds: React.FC = () => {
             return Number.parseInt(value.replace(/[.\s]/g, "").replace(",", "")) || 0
           }
 
-          const date = row[headers.indexOf("Date")] || ""
-          const adName = row[headers.indexOf("Ad name")] || ""
-          const adCreativeImageUrl = row[headers.indexOf("Ad creative image URL")] || ""
-          const adCreativeThumbnailUrl = row[headers.indexOf("Ad creative thumbnail URL")] || ""
-          const campaignName = row[headers.indexOf("Campaign name")] || ""
-          const reach = parseInteger(row[headers.indexOf("Reach")])
-          const frequency = parseNumber(row[headers.indexOf("Frequency")])
-          const impressions = parseInteger(row[headers.indexOf("Impressions")])
-          const cost = parseNumber(row[headers.indexOf("Cost")])
-          const linkClicks = parseInteger(row[headers.indexOf("Link clicks")])
-          const cpc = parseNumber(row[headers.indexOf("CPC (cost per link click)")])
-          const pageEngagements = parseInteger(row[headers.indexOf("Page engagements")])
-          const postEngagements = parseInteger(row[headers.indexOf("Post engagements")])
-          const postReactions = parseInteger(row[headers.indexOf("Post reactions")])
-          const costPerPostEngagement = parseNumber(row[headers.indexOf("Cost per post engagement")])
-          const videoWatches25 = parseInteger(row[headers.indexOf("Video watches at 25%")])
-          const videoWatches50 = parseInteger(row[headers.indexOf("Video watches at 50%")])
-          const videoWatches75 = parseInteger(row[headers.indexOf("Video watches at 75%")])
-          const videoWatches100 = parseInteger(row[headers.indexOf("Video watches at 100%")])
-          const videoPlayActions = parseInteger(row[headers.indexOf("Video play actions")])
-          const landingPageViews = parseInteger(row[headers.indexOf("Landing page views")])
-          const cpm = parseNumber(row[headers.indexOf("CPM (cost per 1000 impressions)")])
+          const adName = row[headers.indexOf("Ad name")]?.trim() || ""
+          const scoreData = pontuacaoMap.get(adName)
+
+          if (scoreData?.tipoCompra) tiposCompraSet.add(scoreData.tipoCompra)
+          if (scoreData?.videoEstaticoAudio) videoEstaticoAudioSet.add(scoreData.videoEstaticoAudio)
 
           return {
-            date,
+            date: row[headers.indexOf("Date")] || "",
             adName,
-            adCreativeImageUrl,
-            adCreativeThumbnailUrl,
-            campaignName,
-            reach,
-            frequency,
-            impressions,
-            cost,
-            linkClicks,
-            cpc,
-            pageEngagements,
-            postEngagements,
-            postReactions,
-            costPerPostEngagement,
-            videoWatches25,
-            videoWatches50,
-            videoWatches75,
-            videoWatches100,
-            videoPlayActions,
-            landingPageViews,
-            cpm,
+            adCreativeImageUrl: row[headers.indexOf("Ad creative image URL")] || "",
+            adCreativeThumbnailUrl: row[headers.indexOf("Ad creative thumbnail URL")] || "",
+            campaignName: row[headers.indexOf("Campaign name")] || "",
+            reach: parseInteger(row[headers.indexOf("Reach")]),
+            frequency: parseNumber(row[headers.indexOf("Frequency")]),
+            impressions: parseInteger(row[headers.indexOf("Impressions")]),
+            cost: parseNumber(row[headers.indexOf("Cost")]),
+            linkClicks: parseInteger(row[headers.indexOf("Link clicks")]),
+            cpc: parseNumber(row[headers.indexOf("CPC (cost per link click)")]),
+            pageEngagements: parseInteger(row[headers.indexOf("Page engagements")]),
+            postEngagements: parseInteger(row[headers.indexOf("Post engagements")]),
+            postReactions: parseInteger(row[headers.indexOf("Post reactions")]),
+            costPerPostEngagement: parseNumber(row[headers.indexOf("Cost per post engagement")]),
+            videoWatches25: parseInteger(row[headers.indexOf("Video watches at 25%")]),
+            videoWatches50: parseInteger(row[headers.indexOf("Video watches at 50%")]),
+            videoWatches75: parseInteger(row[headers.indexOf("Video watches at 75%")]),
+            videoWatches100: parseInteger(row[headers.indexOf("Video watches at 100%")]),
+            videoPlayActions: parseInteger(row[headers.indexOf("Video play actions")]),
+            landingPageViews: parseInteger(row[headers.indexOf("Landing page views")]),
+            cpm: parseNumber(row[headers.indexOf("CPM (cost per 1000 impressions)")]),
+            pontuacaoCriativo: scoreData?.pontuacao,
+            tipoCompra: scoreData?.tipoCompra,
+            videoEstaticoAudio: scoreData?.videoEstaticoAudio,
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
-      // NÃO agrupar aqui - manter dados individuais para filtragem correta
       setProcessedData(processed)
+      setAvailableTiposCompra(Array.from(tiposCompraSet))
+      setAvailableVideoEstaticoAudio(Array.from(videoEstaticoAudioSet))
 
-      // Definir range de datas inicial
       if (processed.length > 0) {
         const dates = processed.map((item) => new Date(item.date)).sort((a, b) => a.getTime() - b.getTime())
         const startDate = dates[0].toISOString().split("T")[0]
@@ -119,7 +136,6 @@ const CriativosMetaAds: React.FC = () => {
         setDateRange({ start: startDate, end: endDate })
       }
 
-      // Extrair campanhas únicas
       const campaignSet = new Set<string>()
       processed.forEach((item) => {
         if (item.campaignName) {
@@ -129,20 +145,18 @@ const CriativosMetaAds: React.FC = () => {
       const campaigns = Array.from(campaignSet).filter(Boolean)
       setAvailableCampaigns(campaigns)
 
-      // Selecionar automaticamente a campanha que contém "CPM" no nome
-      const cpmCampaign = campaigns.find((campaign) => campaign.toUpperCase().includes("CPM"))
-
-      if (cpmCampaign && selectedCampaign === "") {
-        setSelectedCampaign(cpmCampaign)
-      }
+      // Removed the automatic selection of CPM campaign
+      // const cpmCampaign = campaigns.find((campaign) => campaign.toUpperCase().includes("CPM"))
+      // if (cpmCampaign && selectedCampaign === "") {
+      //   setSelectedCampaign(cpmCampaign)
+      // }
     }
-  }, [apiData, selectedCampaign])
+  }, [apiData, pontuacaoData, selectedCampaign])
 
   // Filtrar dados
   const filteredData = useMemo(() => {
     let filtered = processedData
 
-    // Filtro por período
     if (dateRange.start && dateRange.end) {
       filtered = filtered.filter((item) => {
         const itemDate = new Date(item.date)
@@ -152,12 +166,18 @@ const CriativosMetaAds: React.FC = () => {
       })
     }
 
-    // Filtro por campanha
     if (selectedCampaign) {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
-    // AGORA sim, agrupar por criativo APÓS a filtragem
+    if (selectedTipoCompra) {
+      filtered = filtered.filter((item) => item.tipoCompra === selectedTipoCompra)
+    }
+
+    if (selectedVideoEstaticoAudio) {
+      filtered = filtered.filter((item) => item.videoEstaticoAudio === selectedVideoEstaticoAudio)
+    }
+
     const groupedData: Record<string, CreativeData> = {}
     filtered.forEach((item) => {
       const key = `${item.adName}_${item.adCreativeImageUrl}`
@@ -180,7 +200,6 @@ const CriativosMetaAds: React.FC = () => {
       }
     })
 
-    // Recalcular métricas derivadas
     const finalData = Object.values(groupedData).map((item) => ({
       ...item,
       cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
@@ -189,11 +208,17 @@ const CriativosMetaAds: React.FC = () => {
       costPerPostEngagement: item.postEngagements > 0 ? item.cost / item.postEngagements : 0,
     }))
 
-    // Ordenar por investimento (custo) decrescente
-    finalData.sort((a, b) => b.cost - a.cost)
+    finalData.sort((a, b) => {
+      const scoreA = a.pontuacaoCriativo ?? -1
+      const scoreB = b.pontuacaoCriativo ?? -1
+      if (sortOrder === "desc") {
+        return scoreB - scoreA
+      }
+      return scoreA - scoreB
+    })
 
     return finalData
-  }, [processedData, selectedCampaign, dateRange])
+  }, [processedData, selectedCampaign, dateRange, selectedTipoCompra, selectedVideoEstaticoAudio, sortOrder])
 
   // Paginação
   const paginatedData = useMemo(() => {
@@ -253,14 +278,14 @@ const CriativosMetaAds: React.FC = () => {
     return text.substring(0, maxLength) + "..."
   }
 
-  if (loading) {
+  if (loading || pontuacaoLoading) {
     return <Loading message="Carregando criativos Meta Ads..." />
   }
 
-  if (error) {
+  if (error || pontuacaoError) {
     return (
       <div className="bg-red-50/90 backdrop-blur-sm border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">Erro ao carregar dados: {error.message}</p>
+        <p className="text-red-600">Erro ao carregar dados: {error?.message || pontuacaoError?.message}</p>
       </div>
     )
   }
@@ -287,7 +312,7 @@ const CriativosMetaAds: React.FC = () => {
 
       {/* Filtros */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Filtro de Data */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -330,12 +355,44 @@ const CriativosMetaAds: React.FC = () => {
             </select>
           </div>
 
-          {/* Informações adicionais */}
+          {/* Filtro Tipo de Compra */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Total de Criativos</label>
-            <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-600">
-              {filteredData.length} criativos encontrados
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Filter className="w-4 h-4 mr-2" />
+              Tipo de Compra
+            </label>
+            <select
+              value={selectedTipoCompra}
+              onChange={(e) => setSelectedTipoCompra(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">Todos</option>
+              {availableTiposCompra.map((tipo, index) => (
+                <option key={index} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro Formato */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Filter className="w-4 h-4 mr-2" />
+              Formato
+            </label>
+            <select
+              value={selectedVideoEstaticoAudio}
+              onChange={(e) => setSelectedVideoEstaticoAudio(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">Todos</option>
+              {availableVideoEstaticoAudio.map((formato, index) => (
+                <option key={index} value={formato}>
+                  {formato}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -393,11 +450,19 @@ const CriativosMetaAds: React.FC = () => {
                 <th className="text-left py-3 px-4 font-semibold">Criativo</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CPM</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CPC</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Tipo Compra</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Formato</th>
+                <th
+                  className="text-right py-3 px-4 font-semibold min-w-[7.5rem] cursor-pointer"
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                >
+                  <div className="flex items-center justify-end">
+                    Pontuação
+                    <ArrowUpDown className="w-4 h-4 ml-2" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -416,7 +481,6 @@ const CriativosMetaAds: React.FC = () => {
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = "none"
-                              // Adicionar verificação de segurança para o parentElement
                               if (target.parentElement) {
                                 target.parentElement.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
                               }
@@ -428,7 +492,7 @@ const CriativosMetaAds: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="">
+                      <div>
                         <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">
                           {creative.adName}
                         </p>
@@ -441,11 +505,13 @@ const CriativosMetaAds: React.FC = () => {
                       {formatCurrency(creative.cost)}
                     </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.linkClicks)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatCurrency(creative.cpm)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatCurrency(creative.cpc)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{ctr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.tipoCompra || "-"}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.videoEstaticoAudio || "-"}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem] font-bold">
+                      {creative.pontuacaoCriativo?.toFixed(2) ?? "-"}
+                    </td>
                   </tr>
                 )
               })}

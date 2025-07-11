@@ -1,5 +1,8 @@
+"use client"
+
 import type React from "react"
-import { BookOpenText } from "lucide-react"
+import { useState } from "react"
+import { Search, BookOpen } from "lucide-react"
 
 interface GlossaryTerm {
   term: string
@@ -10,88 +13,118 @@ const glossaryTerms: GlossaryTerm[] = [
   {
     term: "CPM (Custo por Mil Impressões)",
     definition:
-      "O custo médio que você paga por mil impressões (visualizações) do seu anúncio. É uma métrica de eficiência para campanhas de alcance e reconhecimento de marca.",
+      "Métrica que indica quanto você paga por cada mil visualizações do seu anúncio. É uma das principais formas de precificação em publicidade digital.",
   },
   {
     term: "CPC (Custo por Clique)",
     definition:
-      "O custo médio que você paga por cada clique no seu anúncio. É uma métrica importante para campanhas focadas em tráfego e conversão.",
+      "Valor pago cada vez que alguém clica no seu anúncio. É uma métrica fundamental para campanhas focadas em direcionamento de tráfego.",
   },
   {
-    term: "CPV (Custo por Visualização)",
+    term: "CTR (Taxa de Cliques)",
     definition:
-      "O custo médio que você paga por cada visualização de um vídeo. Usado principalmente em campanhas de vídeo.",
+      "Percentual de pessoas que clicaram no seu anúncio em relação ao número total de pessoas que o viram. Indica a relevância e atratividade do seu conteúdo.",
   },
   {
-    term: "CTR (Click-Through Rate)",
+    term: "VTR (View Through Rate)",
     definition:
-      "A porcentagem de pessoas que clicam no seu anúncio depois de vê-lo. Calculado como (Cliques / Impressões) * 100. Indica a relevância do anúncio.",
-  },
-  {
-    term: "VTR (View-Through Rate)",
-    definition:
-      "A porcentagem de pessoas que assistem a um vídeo até o fim (ou uma parte significativa) após uma impressão. Usado para medir o engajamento com conteúdo de vídeo.",
-  },
-  {
-    term: "Alcance",
-    definition:
-      "O número total de pessoas únicas que viram seu anúncio. Diferente de impressões, que podem contar múltiplas visualizações pela mesma pessoa.",
-  },
-  {
-    term: "Frequência",
-    definition:
-      "O número médio de vezes que uma pessoa única viu seu anúncio. Calculado como Impressões / Alcance. Uma frequência muito alta pode levar à fadiga do anúncio.",
+      "Taxa que mede quantas pessoas assistiram seu vídeo até o final em relação ao número total de visualizações iniciadas.",
   },
   {
     term: "Impressões",
-    definition: "O número total de vezes que seu anúncio foi exibido, independentemente de ter sido clicado ou não.",
+    definition: "Número total de vezes que seu anúncio foi exibido, independentemente de ter sido clicado ou não.",
   },
   {
-    term: "Investimento",
-    definition: "O valor total gasto na campanha durante um período específico.",
+    term: "Alcance",
+    definition: "Número de pessoas únicas que viram seu anúncio pelo menos uma vez durante o período da campanha.",
   },
   {
-    term: "Tráfego",
-    definition: "O número de visitas ou usuários que chegam a um site ou página de destino a partir dos anúncios.",
+    term: "Frequência",
+    definition: "Número médio de vezes que cada pessoa viu seu anúncio. Calculada dividindo impressões pelo alcance.",
   },
   {
     term: "Engajamento",
-    definition: "Interações dos usuários com o conteúdo, como curtidas, comentários, compartilhamentos e cliques.",
-  },
-  {
-    term: "Criativo",
-    definition: "O material visual (imagem, vídeo) e textual (copy) do anúncio.",
-  },
-  {
-    term: "Benchmark",
     definition:
-      "Um ponto de referência ou padrão de desempenho usado para comparar e avaliar o sucesso de uma campanha ou métrica.",
+      "Interações dos usuários com seu conteúdo, incluindo curtidas, comentários, compartilhamentos e cliques.",
+  },
+  {
+    term: "Taxa de Engajamento",
+    definition:
+      "Percentual de engajamento em relação ao alcance ou impressões. Indica o nível de interesse do público no seu conteúdo.",
+  },
+  {
+    term: "ROAS (Return on Ad Spend)",
+    definition:
+      "Retorno sobre o investimento em publicidade. Mostra quantos reais de receita você obteve para cada real investido em anúncios.",
+  },
+  {
+    term: "Sistema de Pontuação Personalizado para Criativos",
+    definition:
+      "Essa fórmula complexa atua como um sistema de pontuação para suas campanhas de marketing, gerando um valor entre 0 e 1, onde 0 é a nota mínima e 1 a máxima. Ela avalia uma combinação de três métricas essenciais: uma de custo (como CPM ou CPC) e duas de taxa (como CTR ou VTR). A escolha dessas métricas é feita com base nas características de formato e tipo de compra da sua campanha. No final, a fórmula calcula uma média ponderada dessas pontuações, gerando uma nota que ajuda a classificar e identificar os melhores criativos.",
   },
 ]
 
 const Glossario: React.FC = () => {
-  return (
-    <div className="space-y-6 h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
-          <BookOpenText className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 text-enhanced">Glossário de Métricas</h1>
-          <p className="text-gray-600">Entenda os termos técnicos do seu dashboard</p>
-        </div>
-      </div>
+  const [searchTerm, setSearchTerm] = useState("")
 
-      {/* Glossary Content */}
-      <div className="card-overlay rounded-lg shadow-lg p-6 flex-1 overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-          {glossaryTerms.map((item, index) => (
-            <div key={index}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-1">{item.term}</h3>
-              <p className="text-gray-600 text-sm">{item.definition}</p>
-            </div>
-          ))}
+  const filteredTerms = glossaryTerms.filter(
+    (item) =>
+      item.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.definition.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-3 mb-4">
+            <BookOpen className="w-8 h-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Glossário</h1>
+          </div>
+          <p className="text-gray-600">
+            Definições e explicações dos principais termos utilizados em marketing digital e análise de dados.
+          </p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar termos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Glossary Terms */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            {filteredTerms.length > 0 ? (
+              <div className="space-y-6">
+                {filteredTerms.map((item, index) => (
+                  <div key={index} className="border-b border-gray-100 last:border-b-0 pb-6 last:pb-0">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.term}</h3>
+                    <p className="text-gray-600 leading-relaxed">{item.definition}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Nenhum termo encontrado para "{searchTerm}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer Info */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">Total de {glossaryTerms.length} termos disponíveis</p>
         </div>
       </div>
     </div>

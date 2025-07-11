@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Video, Calendar, Filter } from "lucide-react"
-import { useCartaoTikTokData } from "../../services/api"
+import { Video, Calendar, Filter, ArrowUpDown } from "lucide-react"
+import { useCartaoTikTokData, usePontuacaoTikTokData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 
 interface CreativeData {
@@ -32,22 +32,53 @@ interface CreativeData {
   paidComments: number
   paidShares: number
   paidFollows: number
+  pontuacaoCriativo?: number
+  tipoCompra?: string
+  videoEstaticoAudio?: string
 }
 
 const CriativosTikTok: React.FC = () => {
   const { data: apiData, loading, error } = useCartaoTikTokData()
+  const { data: pontuacaoData, loading: pontuacaoLoading, error: pontuacaoError } = usePontuacaoTikTokData()
+
   const [processedData, setProcessedData] = useState<CreativeData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
   const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
+
+  // New filters state
+  const [selectedTipoCompra, setSelectedTipoCompra] = useState<string>("")
+  const [availableTiposCompra, setAvailableTiposCompra] = useState<string[]>([])
+  const [selectedVideoEstaticoAudio, setSelectedVideoEstaticoAudio] = useState<string>("")
+  const [availableVideoEstaticoAudio, setAvailableVideoEstaticoAudio] = useState<string[]>([])
 
   // Processar dados da API
   useEffect(() => {
-    if (apiData?.values) {
+    if (apiData?.values && pontuacaoData?.values) {
+      const pontuacaoHeaders = pontuacaoData.values[0]
+      const pontuacaoRows = pontuacaoData.values.slice(1)
+      const pontuacaoMap = new Map<string, any>()
+      pontuacaoRows.forEach((row: string[]) => {
+        const creativeTitle = row[pontuacaoHeaders.indexOf("Creative title")]
+        if (creativeTitle) {
+          pontuacaoMap.set(creativeTitle.trim(), {
+            pontuacao: Number.parseFloat(
+              row[pontuacaoHeaders.indexOf("Pontuacao de criativo")]?.replace(",", ".") || "0",
+            ),
+            tipoCompra: row[pontuacaoHeaders.indexOf("Tipo de Compra")],
+            videoEstaticoAudio: row[pontuacaoHeaders.indexOf("video_estatico_audio")],
+          })
+        }
+      })
+
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
+
+      const tiposCompraSet = new Set<string>()
+      const videoEstaticoAudioSet = new Set<string>()
 
       const processed: CreativeData[] = rows
         .map((row: string[]) => {
@@ -61,66 +92,49 @@ const CriativosTikTok: React.FC = () => {
             return Number.parseInt(value.replace(/[.\s]/g, "").replace(",", "")) || 0
           }
 
-          const date = row[headers.indexOf("Date")] || ""
-          const campaignName = row[headers.indexOf("Campaign name")] || ""
-          const adGroupName = row[headers.indexOf("Ad group name")] || ""
-          const adName = row[headers.indexOf("Ad name")] || ""
-          const adText = row[headers.indexOf("Ad text")] || ""
-          const videoThumbnailUrl = row[headers.indexOf("Video thumbnail URL")] || ""
-          const impressions = parseInteger(row[headers.indexOf("Impressions")])
-          const clicks = parseInteger(row[headers.indexOf("Clicks")])
-          const cost = parseNumber(row[headers.indexOf("Cost")])
-          const cpc = parseNumber(row[headers.indexOf("CPC")])
-          const cpm = parseNumber(row[headers.indexOf("CPM")])
-          const reach = parseInteger(row[headers.indexOf("Reach")])
-          const frequency = parseNumber(row[headers.indexOf("Frequency")])
-          const results = parseInteger(row[headers.indexOf("Results")])
-          const videoViews = parseInteger(row[headers.indexOf("Video views")])
-          const twoSecondVideoViews = parseInteger(row[headers.indexOf("2-second video views")])
-          const videoViews25 = parseInteger(row[headers.indexOf("Video views at 25%")])
-          const videoViews50 = parseInteger(row[headers.indexOf("Video views at 50%")])
-          const videoViews75 = parseInteger(row[headers.indexOf("Video views at 75%")])
-          const videoViews100 = parseInteger(row[headers.indexOf("Video views at 100%")])
-          const profileVisits = parseInteger(row[headers.indexOf("Profile visits")])
-          const paidLikes = parseInteger(row[headers.indexOf("Paid likes")])
-          const paidComments = parseInteger(row[headers.indexOf("Paid comments")])
-          const paidShares = parseInteger(row[headers.indexOf("Paid shares")])
-          const paidFollows = parseInteger(row[headers.indexOf("Paid follows")])
+          const adName = row[headers.indexOf("Ad name")]?.trim() || ""
+          const scoreData = pontuacaoMap.get(adName)
+
+          if (scoreData?.tipoCompra) tiposCompraSet.add(scoreData.tipoCompra)
+          if (scoreData?.videoEstaticoAudio) videoEstaticoAudioSet.add(scoreData.videoEstaticoAudio)
 
           return {
-            date,
-            campaignName,
-            adGroupName,
-            adName,
-            adText,
-            videoThumbnailUrl,
-            impressions,
-            clicks,
-            cost,
-            cpc,
-            cpm,
-            reach,
-            frequency,
-            results,
-            videoViews,
-            twoSecondVideoViews,
-            videoViews25,
-            videoViews50,
-            videoViews75,
-            videoViews100,
-            profileVisits,
-            paidLikes,
-            paidComments,
-            paidShares,
-            paidFollows,
+            date: row[headers.indexOf("Date")] || "",
+            campaignName: row[headers.indexOf("Campaign name")] || "",
+            adGroupName: row[headers.indexOf("Ad group name")] || "",
+            adName: adName,
+            adText: row[headers.indexOf("Ad text")] || "",
+            videoThumbnailUrl: row[headers.indexOf("Video thumbnail URL")] || "",
+            impressions: parseInteger(row[headers.indexOf("Impressions")]),
+            clicks: parseInteger(row[headers.indexOf("Clicks")]),
+            cost: parseNumber(row[headers.indexOf("Cost")]),
+            cpc: parseNumber(row[headers.indexOf("CPC")]),
+            cpm: parseNumber(row[headers.indexOf("CPM")]),
+            reach: parseInteger(row[headers.indexOf("Reach")]),
+            frequency: parseNumber(row[headers.indexOf("Frequency")]),
+            results: parseInteger(row[headers.indexOf("Results")]),
+            videoViews: parseInteger(row[headers.indexOf("Video views")]),
+            twoSecondVideoViews: parseInteger(row[headers.indexOf("2-second video views")]),
+            videoViews25: parseInteger(row[headers.indexOf("Video views at 25%")]),
+            videoViews50: parseInteger(row[headers.indexOf("Video views at 50%")]),
+            videoViews75: parseInteger(row[headers.indexOf("Video views at 75%")]),
+            videoViews100: parseInteger(row[headers.indexOf("Video views at 100%")]),
+            profileVisits: parseInteger(row[headers.indexOf("Profile visits")]),
+            paidLikes: parseInteger(row[headers.indexOf("Paid likes")]),
+            paidComments: parseInteger(row[headers.indexOf("Paid comments")]),
+            paidShares: parseInteger(row[headers.indexOf("Paid shares")]),
+            paidFollows: parseInteger(row[headers.indexOf("Paid follows")]),
+            pontuacaoCriativo: scoreData?.pontuacao,
+            tipoCompra: scoreData?.tipoCompra,
+            videoEstaticoAudio: scoreData?.videoEstaticoAudio,
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
-      // NÃO agrupar aqui - manter dados individuais para filtragem correta
       setProcessedData(processed)
+      setAvailableTiposCompra(Array.from(tiposCompraSet))
+      setAvailableVideoEstaticoAudio(Array.from(videoEstaticoAudioSet))
 
-      // Definir range de datas inicial
       if (processed.length > 0) {
         const dates = processed.map((item) => new Date(item.date)).sort((a, b) => a.getTime() - b.getTime())
         const startDate = dates[0].toISOString().split("T")[0]
@@ -128,23 +142,20 @@ const CriativosTikTok: React.FC = () => {
         setDateRange({ start: startDate, end: endDate })
       }
 
-      // Extrair campanhas únicas
       const campaignSet = new Set<string>()
       processed.forEach((item) => {
         if (item.campaignName) {
           campaignSet.add(item.campaignName)
         }
       })
-      const campaigns = Array.from(campaignSet).filter(Boolean)
-      setAvailableCampaigns(campaigns)
+      setAvailableCampaigns(Array.from(campaignSet).filter(Boolean))
     }
-  }, [apiData])
+  }, [apiData, pontuacaoData])
 
   // Filtrar dados
   const filteredData = useMemo(() => {
     let filtered = processedData
 
-    // Filtro por período
     if (dateRange.start && dateRange.end) {
       filtered = filtered.filter((item) => {
         const itemDate = new Date(item.date)
@@ -154,12 +165,18 @@ const CriativosTikTok: React.FC = () => {
       })
     }
 
-    // Filtro por campanha
     if (selectedCampaign) {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
-    // AGORA sim, agrupar por criativo APÓS a filtragem
+    if (selectedTipoCompra) {
+      filtered = filtered.filter((item) => item.tipoCompra === selectedTipoCompra)
+    }
+
+    if (selectedVideoEstaticoAudio) {
+      filtered = filtered.filter((item) => item.videoEstaticoAudio === selectedVideoEstaticoAudio)
+    }
+
     const groupedData: Record<string, CreativeData> = {}
     filtered.forEach((item) => {
       const key = `${item.adName}_${item.videoThumbnailUrl}`
@@ -185,7 +202,6 @@ const CriativosTikTok: React.FC = () => {
       }
     })
 
-    // Recalcular métricas derivadas
     const finalData = Object.values(groupedData).map((item) => ({
       ...item,
       cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
@@ -193,11 +209,17 @@ const CriativosTikTok: React.FC = () => {
       frequency: item.reach > 0 ? item.impressions / item.reach : 0,
     }))
 
-    // Ordenar por investimento (custo) decrescente
-    finalData.sort((a, b) => b.cost - a.cost)
+    finalData.sort((a, b) => {
+      const scoreA = a.pontuacaoCriativo ?? -1
+      const scoreB = b.pontuacaoCriativo ?? -1
+      if (sortOrder === "desc") {
+        return scoreB - scoreA
+      }
+      return scoreA - scoreB
+    })
 
     return finalData
-  }, [processedData, selectedCampaign, dateRange])
+  }, [processedData, selectedCampaign, dateRange, selectedTipoCompra, selectedVideoEstaticoAudio, sortOrder])
 
   // Paginação
   const paginatedData = useMemo(() => {
@@ -260,14 +282,14 @@ const CriativosTikTok: React.FC = () => {
     return text.substring(0, maxLength) + "..."
   }
 
-  if (loading) {
+  if (loading || pontuacaoLoading) {
     return <Loading message="Carregando criativos TikTok..." />
   }
 
-  if (error) {
+  if (error || pontuacaoError) {
     return (
       <div className="bg-red-50/90 backdrop-blur-sm border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">Erro ao carregar dados: {error.message}</p>
+        <p className="text-red-600">Erro ao carregar dados: {error?.message || pontuacaoError?.message}</p>
       </div>
     )
   }
@@ -294,7 +316,7 @@ const CriativosTikTok: React.FC = () => {
 
       {/* Filtros */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Filtro de Data */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -337,12 +359,44 @@ const CriativosTikTok: React.FC = () => {
             </select>
           </div>
 
-          {/* Informações adicionais */}
+          {/* Filtro Tipo de Compra */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Total de Criativos</label>
-            <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-600">
-              {filteredData.length} criativos encontrados
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Filter className="w-4 h-4 mr-2" />
+              Tipo de Compra
+            </label>
+            <select
+              value={selectedTipoCompra}
+              onChange={(e) => setSelectedTipoCompra(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+            >
+              <option value="">Todos</option>
+              {availableTiposCompra.map((tipo, index) => (
+                <option key={index} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro Formato */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Filter className="w-4 h-4 mr-2" />
+              Formato
+            </label>
+            <select
+              value={selectedVideoEstaticoAudio}
+              onChange={(e) => setSelectedVideoEstaticoAudio(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+            >
+              <option value="">Todos</option>
+              {availableVideoEstaticoAudio.map((formato, index) => (
+                <option key={index} value={formato}>
+                  {formato}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -400,17 +454,22 @@ const CriativosTikTok: React.FC = () => {
                 <th className="text-left py-3 px-4 font-semibold">Criativo</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Views 100%</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Likes</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">VTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Tipo Compra</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Formato</th>
+                <th
+                  className="text-right py-3 px-4 font-semibold min-w-[7.5rem] cursor-pointer"
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                >
+                  <div className="flex items-center justify-end">
+                    Pontuação
+                    <ArrowUpDown className="w-4 h-4 ml-2" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {paginatedData.map((creative, index) => {
-                const vtr = creative.impressions > 0 ? (creative.videoViews100 / creative.impressions) * 100 : 0
-
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-pink-50" : "bg-white"}>
                     <td className="py-3 px-4 w-[5rem]">
@@ -423,7 +482,6 @@ const CriativosTikTok: React.FC = () => {
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = "none"
-                              // Adicionar verificação de segurança para o parentElement
                               if (target.parentElement) {
                                 target.parentElement.innerHTML = '<div class="text-gray-400 text-xs">Sem imagem</div>'
                               }
@@ -435,7 +493,7 @@ const CriativosTikTok: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="">
+                      <div>
                         <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">
                           {creative.adName}
                         </p>
@@ -444,7 +502,7 @@ const CriativosTikTok: React.FC = () => {
                         </p>
                         {creative.adText && (
                           <p className="text-xs text-gray-400 mt-1 leading-tight whitespace-normal break-words">
-                            {creative.adText.length > 100 ? creative.adText.substring(0, 100) + "..." : creative.adText}
+                            {truncateText(creative.adText, 100)}
                           </p>
                         )}
                       </div>
@@ -453,11 +511,12 @@ const CriativosTikTok: React.FC = () => {
                       {formatCurrency(creative.cost)}
                     </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.clicks)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.videoViews100)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.paidLikes)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{vtr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.tipoCompra || "-"}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.videoEstaticoAudio || "-"}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem] font-bold">
+                      {creative.pontuacaoCriativo?.toFixed(2) ?? "-"}
+                    </td>
                   </tr>
                 )
               })}

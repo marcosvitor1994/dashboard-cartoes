@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useMemo } from "react"
-import { TrendingUp, Calendar, MousePointer, Clock, Users, BarChart3, PieChart } from "lucide-react"
+import { TrendingUp, Calendar, MousePointer, Clock, Users, BarChart3 } from "lucide-react"
 import Loading from "../../components/Loading/Loading"
 import { useGA4ResumoData, useGA4CompletoData, useGA4SourceData } from "../../services/api" // Importar nova API
 import BrazilMap from "../../components/BrazilMap/BrazilMap" // Importar novo componente de mapa
@@ -166,6 +166,7 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
         receptivo: {
           sessoesCampanha: 0,
           cliquesSaibaMais: 0,
+          cliquesCTAs: 0,
           duracaoSessoes: "00:00:00",
           taxaRejeicao: 0,
         },
@@ -185,12 +186,15 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
     const bounceRateIndex = headers.indexOf("Bounce rate")
     const avgDurationIndex = headers.indexOf("Average session duration")
     const saibaMaisIndex = headers.indexOf("Key event count for web_pvc_cartoes_useourocard_saibamais")
+    const ctasIndex1 = headers.indexOf("Key event count for web_pvc_cartoes_useourocard_ctas")
+    const ctasIndex2 = headers.indexOf("Key event count for web_pvc_cartoes_use_ourocard_ctas")
 
     let totalSessions = 0
     let totalSaibaMais = 0
     let totalDuration = 0
     let totalBounceRate = 0
     let validRows = 0
+    let totalCTAs = 0
 
     const deviceData: { [key: string]: number } = {}
     const regionData: { [key: string]: number } = {}
@@ -207,6 +211,10 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
       const bounceRate = Number.parseFloat(row[bounceRateIndex]) || 0
       const device = row[deviceIndex] || "Outros"
       const region = row[regionIndex] || "Outros"
+      const ctas1 = Number.parseInt(row[ctasIndex1]) || 0
+      const ctas2 = Number.parseInt(row[ctasIndex2]) || 0
+
+      totalCTAs += ctas1 + ctas2
 
       if (sessions > 0) {
         totalSessions += sessions
@@ -249,6 +257,7 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
       receptivo: {
         sessoesCampanha: totalSessions,
         cliquesSaibaMais: totalSaibaMais,
+        cliquesCTAs: totalCTAs,
         duracaoSessoes: duracaoFormatada,
         taxaRejeicao: avgBounceRate,
       },
@@ -436,20 +445,18 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
   return (
     <div className="space-y-6 h-full flex flex-col">
       {/* Título e Subtítulo */}
-          <div className="col-span-3 flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Tráfego e Engajamento</h1>
-              <p className="text-xs text-gray-600">Receptivo da campanha</p>
-            </div>
-          </div>
+      <div className="col-span-3 flex items-center space-x-3">
+        <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+          <TrendingUp className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Tráfego e Engajamento</h1>
+          <p className="text-xs text-gray-600">Receptivo da campanha</p>
+        </div>
+      </div>
       {/* Header Compacto com Filtro de Data e Cards de Métricas */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
         <div className="grid grid-cols-12 gap-4 items-center">
-          
-
           {/* Filtro de Data */}
           <div className="col-span-3">
             <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
@@ -472,8 +479,8 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
             </div>
           </div>
 
-          {/* Cards de Métricas - 5 cards ocupando 8 colunas */}
-          <div className="col-span-8 grid grid-cols-5 gap-3">
+          {/* Cards de Métricas - 6 cards ocupando 9 colunas */}
+          <div className="col-span-9 grid grid-cols-6 gap-3">
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -495,6 +502,18 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
                   </p>
                 </div>
                 <MousePointer className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-orange-600">Cliques nos CTAs</p>
+                  <p className="text-lg font-bold text-orange-900">
+                    {formatNumber(processedResumoData.receptivo.cliquesCTAs)}
+                  </p>
+                </div>
+                <MousePointer className="w-6 h-6 text-orange-600" />
               </div>
             </div>
 
@@ -617,7 +636,6 @@ const TrafegoEngajamento: React.FC<TrafegoEngajamentoProps> = () => {
           />
         </div>
       </div>
-      
 
       {/* Observações */}
       <div className="card-overlay rounded-lg shadow-lg p-4">

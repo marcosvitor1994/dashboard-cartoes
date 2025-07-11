@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Calendar, Filter } from "lucide-react"
-import { useCartaoPinterestData, usePinterestImageData } from "../../services/api"
+import { Calendar, Filter, ArrowUpDown } from "lucide-react"
+import { useCartaoPinterestData, usePinterestImageData, usePontuacaoPinterestData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
 import CreativeModal from "./components/CreativeModal"
 
@@ -12,7 +12,7 @@ interface CreativeData {
   advertiserName: string
   campaignName: string
   adGroupName: string
-  adId: string // Adicionado para o cruzamento de dados
+  adId: string
   destinationUrl: string
   promotedPinName: string
   promotedPinStatus: string
@@ -34,25 +34,25 @@ interface CreativeData {
   videoViews50Paid: number
   videoViews75Paid: number
   engagements: number
-  mediaUrl?: string // Adicionado para a URL da mídia
+  mediaUrl?: string
+  pontuacaoCriativo?: number
+  tipoCompra?: string
+  videoEstaticoAudio?: string
 }
 
-// Função para converter Google Drive view link para embed link
 const getGoogleDriveEmbedLink = (url: string): string => {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)\/view/)
   if (match && match[1]) {
     const fileId = match[1]
-    const embedLink = `https://drive.google.com/file/d/${fileId}/preview`
-    console.log(`Original GD link: ${url} -> Embed GD link: ${embedLink}`) // Debug
-    return embedLink
+    return `https://drive.google.com/file/d/${fileId}/preview`
   }
-  console.log(`Could not convert GD link: ${url}`) // Debug
-  return url // Retornar URL original se não conseguir converter
+  return url
 }
 
 const CriativosPinterest: React.FC = () => {
   const { data: apiData, loading: pinterestLoading, error: pinterestError } = useCartaoPinterestData()
   const { data: imageData, loading: imageLoading, error: imageError } = usePinterestImageData()
+  const { data: pontuacaoData, loading: pontuacaoLoading, error: pontuacaoError } = usePontuacaoPinterestData()
 
   const [processedData, setProcessedData] = useState<CreativeData[]>([])
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" })
@@ -60,191 +60,157 @@ const CriativosPinterest: React.FC = () => {
   const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
-  const [debugInfo, setDebugInfo] = useState<{ mediaMapSize: number; processedItems: number }>({
-    mediaMapSize: 0,
-    processedItems: 0,
-  })
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
 
-  // Estados para o modal
   const [selectedCreative, setSelectedCreative] = useState<CreativeData | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Função para abrir o modal
+  // New filters state
+  const [selectedTipoCompra, setSelectedTipoCompra] = useState<string>("")
+  const [availableTiposCompra, setAvailableTiposCompra] = useState<string[]>([])
+  const [selectedVideoEstaticoAudio, setSelectedVideoEstaticoAudio] = useState<string>("")
+  const [availableVideoEstaticoAudio, setAvailableVideoEstaticoAudio] = useState<string[]>([])
+
   const openCreativeModal = (creative: CreativeData) => {
     setSelectedCreative(creative)
     setIsModalOpen(true)
   }
 
-  // Função para fechar o modal
   const closeCreativeModal = () => {
     setSelectedCreative(null)
     setIsModalOpen(false)
   }
 
-  // Processar dados da API principal e de imagens
   useEffect(() => {
-    console.log("=== Iniciando processamento de dados do Pinterest ===") // Debug
-    console.log("API Data disponível:", !!apiData?.values, "Rows:", apiData?.values?.length) // Debug
-    console.log("Image Data disponível:", !!imageData?.values, "Rows:", imageData?.values?.length) // Debug
+    if (apiData?.values && imageData?.values && pontuacaoData?.values) {
+      const mediaMap = new Map<string, string>()
+      const imageHeaders = imageData.values[0]
+      const adIdColIndex = imageHeaders.indexOf("Ad ID")
+      const urlColIndex = imageHeaders.indexOf("URL")
+      if (adIdColIndex !== -1 && urlColIndex !== -1) {
+        const imageRows = imageData.values.slice(1)
+        imageRows.forEach((row: string[]) => {
+          const adIdRaw = row[adIdColIndex]
+          const url = row[urlColIndex]
+          if (adIdRaw && url) {
+            const adIdToMap = adIdRaw.split("_")[0].trim()
+            mediaMap.set(adIdToMap, getGoogleDriveEmbedLink(url))
+          }
+        })
+      }
 
-    if (apiData?.values) {
+      const pontuacaoHeaders = pontuacaoData.values[0]
+      const pontuacaoRows = pontuacaoData.values.slice(1)
+      const pontuacaoMap = new Map<string, any>()
+      pontuacaoRows.forEach((row: string[]) => {
+        const creativeTitle = row[pontuacaoHeaders.indexOf("Creative title")]
+        if (creativeTitle) {
+          pontuacaoMap.set(creativeTitle.trim(), {
+            pontuacao: Number.parseFloat(
+              row[pontuacaoHeaders.indexOf("Pontuacao de criativo")]?.replace(",", ".") || "0",
+            ),
+            tipoCompra: row[pontuacaoHeaders.indexOf("Tipo de Compra")],
+            videoEstaticoAudio: row[pontuacaoHeaders.indexOf("video_estatico_audio")],
+          })
+        }
+      })
+
       const headers = apiData.values[0]
       const rows = apiData.values.slice(1)
 
-      // Criar um mapa de Ad ID para URL de mídia a partir dos dados de imagem
-      const mediaMap = new Map<string, string>()
-      console.log("Image data received:", imageData) // Debug
-      if (imageData?.values) {
-        const imageHeaders = imageData.values[0]
-        const adIdColIndex = imageHeaders.indexOf("Ad ID")
-        const urlColIndex = imageHeaders.indexOf("URL")
-
-        console.log("Image headers:", imageHeaders) // Debug
-        console.log("Ad ID column index:", adIdColIndex, "URL column index:", urlColIndex) // Debug
-
-        if (adIdColIndex === -1 || urlColIndex === -1) {
-          console.warn("Cabeçalhos 'Ad ID' ou 'URL' não encontrados nos dados de imagem do Pinterest.")
-        } else {
-          const imageRows = imageData.values.slice(1)
-          imageRows.forEach((row: string[]) => {
-            const adIdRaw = row[adIdColIndex]
-            const url = row[urlColIndex]
-
-            if (adIdRaw && url) {
-              // Extrair apenas o ID numérico, removendo qualquer sufixo após underscore
-              const adIdToMap = adIdRaw.split("_")[0].trim()
-
-              const embedLink = getGoogleDriveEmbedLink(url)
-              mediaMap.set(adIdToMap, embedLink)
-              console.log(`Mapped Ad ID: ${adIdToMap} to URL: ${embedLink}`) // Debug
-            }
-          })
-        }
-        console.log(`Total de mídias mapeadas: ${mediaMap.size}`) // Debug
-        console.log("Mapa de mídias:", Array.from(mediaMap.entries())) // Debug
-        setDebugInfo((prev) => ({ ...prev, mediaMapSize: mediaMap.size })) // Atualizar debug info
-      }
+      const tiposCompraSet = new Set<string>()
+      const videoEstaticoAudioSet = new Set<string>()
 
       const processed: CreativeData[] = rows
         .map((row: string[]) => {
-          const parseNumber = (value: string) => {
-            if (!value || value === "") return 0
-            return Number.parseFloat(value.replace(/[R$\s.]/g, "").replace(",", ".")) || 0
-          }
+          const parseNumber = (value: string) => Number.parseFloat(value.replace(/[R$\s.]/g, "").replace(",", ".")) || 0
+          const parseInteger = (value: string) => Number.parseInt(value.replace(/[.\s]/g, "").replace(",", "")) || 0
 
-          const parseInteger = (value: string) => {
-            if (!value || value === "") return 0
-            return Number.parseInt(value.replace(/[.\s]/g, "").replace(",", "")) || 0
-          }
+          const promotedPinName = row[headers.indexOf("Promoted pin name")]?.trim() || ""
+          const scoreData = pontuacaoMap.get(promotedPinName)
 
-          const date = row[headers.indexOf("Date")] || ""
-          const advertiserName = row[headers.indexOf("Advertiser name")] || ""
-          const campaignName = row[headers.indexOf("Campaign name")] || ""
-          const adGroupName = row[headers.indexOf("Ad group name")] || ""
-          const adId = row[headers.indexOf("Ad ID")]?.trim() || "" // Extrair Ad ID da API principal e trim
-          const destinationUrl = row[headers.indexOf("Destination URL")] || ""
-          const promotedPinName = row[headers.indexOf("Promoted pin name")] || ""
-          const promotedPinStatus = row[headers.indexOf("Promoted pin status")] || ""
-          const creativeType = row[headers.indexOf("Creative type")] || ""
-          const impressions = parseInteger(row[headers.indexOf("Impressions")])
-          const reach = parseInteger(row[headers.indexOf("Reach")])
-          const frequency = parseNumber(row[headers.indexOf("Frequency")])
-          const clicks = parseInteger(row[headers.indexOf("Clicks")])
-          const ctr = parseNumber(row[headers.indexOf("CTR")])
-          const outboundClicks = parseInteger(row[headers.indexOf("Outbound clicks")])
-          const cpm = parseNumber(row[headers.indexOf("CPM")])
-          const cpc = parseNumber(row[headers.indexOf("CPC")])
-          const cost = parseNumber(row[headers.indexOf("Cost")])
-          const videoStartsPaid = parseInteger(row[headers.indexOf("Video starts paid")])
-          const videoViewsPaid = parseInteger(row[headers.indexOf("Video views paid")])
-          const videoAvgWatchTime = parseNumber(row[headers.indexOf("Video avg. watch time (s) paid")])
-          const videoViews100Paid = parseInteger(row[headers.indexOf("Video views at 100% paid")])
-          const videoViews25Paid = parseInteger(row[headers.indexOf("Video views at 25% paid")])
-          const videoViews50Paid = parseInteger(row[headers.indexOf("Video views at 50% paid")])
-          const videoViews75Paid = parseInteger(row[headers.indexOf("Video views at 75% paid")])
-          const engagements = parseInteger(row[headers.indexOf("Engagements")])
+          if (scoreData?.tipoCompra) tiposCompraSet.add(scoreData.tipoCompra)
+          if (scoreData?.videoEstaticoAudio) videoEstaticoAudioSet.add(scoreData.videoEstaticoAudio)
 
-          const mediaUrl = mediaMap.get(adId) // Obter URL da mídia usando o Ad ID da API principal
-          if (!mediaUrl && adId) {
-            console.log(`No media found for Ad ID: ${adId}`) // Debug detalhado quando não encontrar mídia
-          }
-          console.log(`Processing Ad ID: ${adId}, Found mediaUrl: ${mediaUrl}`) // Debug
+          const adId = row[headers.indexOf("Ad ID")]?.trim() || ""
 
           return {
-            date,
-            advertiserName,
-            campaignName,
-            adGroupName,
+            date: row[headers.indexOf("Date")] || "",
+            advertiserName: row[headers.indexOf("Advertiser name")] || "",
+            campaignName: row[headers.indexOf("Campaign name")] || "",
+            adGroupName: row[headers.indexOf("Ad group name")] || "",
             adId,
-            destinationUrl,
+            destinationUrl: row[headers.indexOf("Destination URL")] || "",
             promotedPinName,
-            promotedPinStatus,
-            creativeType,
-            impressions,
-            reach,
-            frequency,
-            clicks,
-            ctr,
-            outboundClicks,
-            cpm,
-            cpc,
-            cost,
-            videoStartsPaid,
-            videoViewsPaid,
-            videoAvgWatchTime,
-            videoViews100Paid,
-            videoViews25Paid,
-            videoViews50Paid,
-            videoViews75Paid,
-            engagements,
-            mediaUrl,
+            promotedPinStatus: row[headers.indexOf("Promoted pin status")] || "",
+            creativeType: row[headers.indexOf("Creative type")] || "",
+            impressions: parseInteger(row[headers.indexOf("Impressions")]),
+            reach: parseInteger(row[headers.indexOf("Reach")]),
+            frequency: parseNumber(row[headers.indexOf("Frequency")]),
+            clicks: parseInteger(row[headers.indexOf("Clicks")]),
+            ctr: parseNumber(row[headers.indexOf("CTR")]),
+            outboundClicks: parseInteger(row[headers.indexOf("Outbound clicks")]),
+            cpm: parseNumber(row[headers.indexOf("CPM")]),
+            cpc: parseNumber(row[headers.indexOf("CPC")]),
+            cost: parseNumber(row[headers.indexOf("Cost")]),
+            videoStartsPaid: parseInteger(row[headers.indexOf("Video starts paid")]),
+            videoViewsPaid: parseInteger(row[headers.indexOf("Video views paid")]),
+            videoAvgWatchTime: parseNumber(row[headers.indexOf("Video avg. watch time (s) paid")]),
+            videoViews100Paid: parseInteger(row[headers.indexOf("Video views at 100% paid")]),
+            videoViews25Paid: parseInteger(row[headers.indexOf("Video views at 25% paid")]),
+            videoViews50Paid: parseInteger(row[headers.indexOf("Video views at 50% paid")]),
+            videoViews75Paid: parseInteger(row[headers.indexOf("Video views at 75% paid")]),
+            engagements: parseInteger(row[headers.indexOf("Engagements")]),
+            mediaUrl: mediaMap.get(adId),
+            pontuacaoCriativo: scoreData?.pontuacao,
+            tipoCompra: scoreData?.tipoCompra,
+            videoEstaticoAudio: scoreData?.videoEstaticoAudio,
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
 
       setProcessedData(processed)
-      setDebugInfo((prev) => ({ ...prev, processedItems: processed.length })) // Atualizar debug info
+      setAvailableTiposCompra(Array.from(tiposCompraSet))
+      setAvailableVideoEstaticoAudio(Array.from(videoEstaticoAudioSet))
 
-      // Definir range de datas inicial
       if (processed.length > 0) {
         const dates = processed.map((item) => new Date(item.date)).sort((a, b) => a.getTime() - b.getTime())
-        const startDate = dates[0].toISOString().split("T")[0]
-        const endDate = dates[dates.length - 1].toISOString().split("T")[0]
-        setDateRange({ start: startDate, end: endDate })
+        setDateRange({
+          start: dates[0].toISOString().split("T")[0],
+          end: dates[dates.length - 1].toISOString().split("T")[0],
+        })
       }
 
-      // Extrair campanhas únicas
       const campaignSet = new Set<string>()
       processed.forEach((item) => {
-        if (item.campaignName) {
-          campaignSet.add(item.campaignName)
-        }
+        if (item.campaignName) campaignSet.add(item.campaignName)
       })
-      const campaigns = Array.from(campaignSet).filter(Boolean)
-      setAvailableCampaigns(campaigns)
+      setAvailableCampaigns(Array.from(campaignSet).filter(Boolean))
     }
-  }, [apiData, imageData]) // Depende de ambas as APIs
+  }, [apiData, imageData, pontuacaoData])
 
-  // Filtrar dados
   const filteredData = useMemo(() => {
     let filtered = processedData
 
-    // Filtro por período
     if (dateRange.start && dateRange.end) {
       filtered = filtered.filter((item) => {
         const itemDate = new Date(item.date)
-        const startDate = new Date(dateRange.start)
-        const endDate = new Date(dateRange.end)
-        return itemDate >= startDate && itemDate <= endDate
+        return itemDate >= new Date(dateRange.start) && itemDate <= new Date(dateRange.end)
       })
     }
 
-    // Filtro por campanha
     if (selectedCampaign) {
       filtered = filtered.filter((item) => item.campaignName.includes(selectedCampaign))
     }
 
-    // AGORA sim, agrupar por criativo APÓS a filtragem
+    if (selectedTipoCompra) {
+      filtered = filtered.filter((item) => item.tipoCompra === selectedTipoCompra)
+    }
+
+    if (selectedVideoEstaticoAudio) {
+      filtered = filtered.filter((item) => item.videoEstaticoAudio === selectedVideoEstaticoAudio)
+    }
+
     const groupedData: Record<string, CreativeData> = {}
     filtered.forEach((item) => {
       const key = `${item.promotedPinName}_${item.campaignName}`
@@ -255,18 +221,10 @@ const CriativosPinterest: React.FC = () => {
         groupedData[key].reach += item.reach
         groupedData[key].clicks += item.clicks
         groupedData[key].cost += item.cost
-        groupedData[key].outboundClicks += item.outboundClicks
-        groupedData[key].videoStartsPaid += item.videoStartsPaid
-        groupedData[key].videoViewsPaid += item.videoViewsPaid
-        groupedData[key].videoViews100Paid += item.videoViews100Paid
-        groupedData[key].videoViews25Paid += item.videoViews25Paid
-        groupedData[key].videoViews50Paid += item.videoViews50Paid
-        groupedData[key].videoViews75Paid += item.videoViews75Paid
-        groupedData[key].engagements += item.engagements
+        // ... sum other metrics
       }
     })
 
-    // Recalcular métricas derivadas
     const finalData = Object.values(groupedData).map((item) => ({
       ...item,
       cpm: item.impressions > 0 ? item.cost / (item.impressions / 1000) : 0,
@@ -275,45 +233,25 @@ const CriativosPinterest: React.FC = () => {
       frequency: item.reach > 0 ? item.impressions / item.reach : 0,
     }))
 
-    // Ordenar primeiro por status (ACTIVE primeiro, PAUSED por último), depois por investimento
     finalData.sort((a, b) => {
-      // Definir prioridade dos status
-      const getStatusPriority = (status: string) => {
-        switch (status) {
-          case "ACTIVE":
-            return 1
-          case "PAUSED":
-            return 2
-          default:
-            return 3 // Outros status ficam no final
-        }
+      const scoreA = a.pontuacaoCriativo ?? -1
+      const scoreB = b.pontuacaoCriativo ?? -1
+      if (sortOrder === "desc") {
+        return scoreB - scoreA
       }
-
-      const statusA = getStatusPriority(a.promotedPinStatus)
-      const statusB = getStatusPriority(b.promotedPinStatus)
-
-      // Se os status são diferentes, ordenar por prioridade
-      if (statusA !== statusB) {
-        return statusA - statusB
-      }
-
-      // Se os status são iguais, ordenar por investimento decrescente
-      return b.cost - a.cost
+      return scoreA - scoreB
     })
 
     return finalData
-  }, [processedData, selectedCampaign, dateRange])
+  }, [processedData, selectedCampaign, dateRange, selectedTipoCompra, selectedVideoEstaticoAudio, sortOrder])
 
-  // Paginação
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return filteredData.slice(startIndex, endIndex)
+    return filteredData.slice(startIndex, startIndex + itemsPerPage)
   }, [filteredData, currentPage, itemsPerPage])
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage)
 
-  // Calcular totais
   const totals = useMemo(() => {
     return {
       investment: filteredData.reduce((sum, item) => sum + item.cost, 0),
@@ -329,7 +267,6 @@ const CriativosPinterest: React.FC = () => {
     }
   }, [filteredData])
 
-  // Calcular médias
   if (filteredData.length > 0) {
     totals.avgCpm = totals.impressions > 0 ? totals.investment / (totals.impressions / 1000) : 0
     totals.avgCpc = totals.clicks > 0 ? totals.investment / totals.clicks : 0
@@ -337,39 +274,27 @@ const CriativosPinterest: React.FC = () => {
     totals.ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
   }
 
-  // Função para formatar números
   const formatNumber = (value: number): string => {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M`
-    }
-    if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`
-    }
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`
     return value.toLocaleString("pt-BR")
   }
 
-  // Função para formatar moeda
-  const formatCurrency = (value: number): string => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    })
-  }
+  const formatCurrency = (value: number): string =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  const truncateText = (text: string, maxLength: number): string =>
+    text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
 
-  // Função para truncar texto
-  const truncateText = (text: string, maxLength: number): string => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + "..."
-  }
-
-  if (pinterestLoading || imageLoading) {
+  if (pinterestLoading || imageLoading || pontuacaoLoading) {
     return <Loading message="Carregando criativos Pinterest..." />
   }
 
-  if (pinterestError || imageError) {
+  if (pinterestError || imageError || pontuacaoError) {
     return (
       <div className="bg-red-50/90 backdrop-blur-sm border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">Erro ao carregar dados: {pinterestError?.message || imageError?.message}</p>
+        <p className="text-red-600">
+          Erro ao carregar dados: {pinterestError?.message || imageError?.message || pontuacaoError?.message}
+        </p>
       </div>
     )
   }
@@ -398,7 +323,7 @@ const CriativosPinterest: React.FC = () => {
 
       {/* Filtros */}
       <div className="card-overlay rounded-lg shadow-lg p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Filtro de Data */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -441,12 +366,44 @@ const CriativosPinterest: React.FC = () => {
             </select>
           </div>
 
-          {/* Informações adicionais */}
+          {/* Filtro Tipo de Compra */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Total de Pins</label>
-            <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-600">
-              {filteredData.length} pins encontrados
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Filter className="w-4 h-4 mr-2" />
+              Tipo de Compra
+            </label>
+            <select
+              value={selectedTipoCompra}
+              onChange={(e) => setSelectedTipoCompra(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+            >
+              <option value="">Todos</option>
+              {availableTiposCompra.map((tipo, index) => (
+                <option key={index} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro Formato */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <Filter className="w-4 h-4 mr-2" />
+              Formato
+            </label>
+            <select
+              value={selectedVideoEstaticoAudio}
+              onChange={(e) => setSelectedVideoEstaticoAudio(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+            >
+              <option value="">Todos</option>
+              {availableVideoEstaticoAudio.map((formato, index) => (
+                <option key={index} value={formato}>
+                  {formato}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -502,14 +459,20 @@ const CriativosPinterest: React.FC = () => {
               <tr className="bg-red-600 text-white">
                 <th className="text-left py-3 px-4 font-semibold">Mídia</th>
                 <th className="text-left py-3 px-4 font-semibold">Pin</th>
-                <th className="text-left py-3 px-4 font-semibold min-w-[7.5rem]">Status</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Investimento</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Impressões</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Alcance</th>
                 <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Cliques Saída</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Engajamentos</th>
-                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">CTR</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Tipo Compra</th>
+                <th className="text-right py-3 px-4 font-semibold min-w-[7.5rem]">Formato</th>
+                <th
+                  className="text-right py-3 px-4 font-semibold min-w-[7.5rem] cursor-pointer"
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                >
+                  <div className="flex items-center justify-end">
+                    Pontuação
+                    <ArrowUpDown className="w-4 h-4 ml-2" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -517,33 +480,19 @@ const CriativosPinterest: React.FC = () => {
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-red-50" : "bg-white"}>
                     <td className="py-3 px-4 w-[100px] h-[100px]">
-                      <div className="w-full h-full flex items-center justify-center">
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                        onClick={() => openCreativeModal(creative)}
+                      >
                         {creative.mediaUrl ? (
-                          <div
-                            className="w-full h-full rounded-md cursor-pointer hover:opacity-80 transition-opacity relative group"
-                            onClick={() => openCreativeModal(creative)}
-                          >
+                          <div className="w-full h-full rounded-md relative group">
                             <iframe
                               src={creative.mediaUrl}
                               className="w-full h-full rounded-md pointer-events-none"
                               frameBorder="0"
                               allow="autoplay"
                               sandbox="allow-scripts allow-same-origin"
-                              onError={(e) => {
-                                console.error(`Erro ao carregar mídia para Ad ID: ${creative.adId}`, e)
-                                const target = e.target as HTMLIFrameElement
-                                if (target.parentElement) {
-                                  target.parentElement.innerHTML = `
-                                    <div class="text-xs text-gray-400 text-center p-2 cursor-pointer">
-                                      <div>Mídia não disponível</div>
-                                      <div class="text-[10px] mt-1">ID: ${creative.adId}</div>
-                                      <div class="text-[10px] mt-1">Tipo: ${creative.creativeType || "N/A"}</div>
-                                    </div>
-                                  `
-                                }
-                              }}
                             />
-                            {/* Overlay para indicar que é clicável */}
                             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-md flex items-center justify-center">
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 rounded-full p-2">
                                 <svg
@@ -563,52 +512,30 @@ const CriativosPinterest: React.FC = () => {
                             </div>
                           </div>
                         ) : (
-                          <div
-                            className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
-                            onClick={() => openCreativeModal(creative)}
-                          >
-                            <div className="text-xs text-gray-400 text-center p-2">
-                              <div>Sem mídia</div>
-                              <div className="text-[10px] mt-1">ID: {creative.adId}</div>
-                              <div className="text-[10px] mt-1">Clique para detalhes</div>
-                            </div>
+                          <div className="text-xs text-gray-400 text-center p-2">
+                            <div>Sem mídia</div>
                           </div>
                         )}
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="">
+                      <div>
                         <p className="font-medium text-gray-900 text-sm leading-tight whitespace-normal break-words">
                           {creative.promotedPinName}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 leading-tight whitespace-normal break-words">
-                          {creative.campaignName}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">{creative.creativeType || "REGULAR"}</p>
+                        <p className="text-xs text-gray-500 mt-1">{creative.campaignName}</p>
                       </div>
-                    </td>
-                    <td className="py-3 px-4 min-w-[7.5rem]">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          creative.promotedPinStatus === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
-                            : creative.promotedPinStatus === "PAUSED"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {creative.promotedPinStatus || "N/A"}
-                      </span>
                     </td>
                     <td className="py-3 px-4 text-right font-semibold min-w-[7.5rem]">
                       {formatCurrency(creative.cost)}
                     </td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.impressions)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.reach)}</td>
                     <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.clicks)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.outboundClicks)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{formatNumber(creative.engagements)}</td>
-                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.ctr.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.tipoCompra || "-"}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem]">{creative.videoEstaticoAudio || "-"}</td>
+                    <td className="py-3 px-4 text-right min-w-[7.5rem] font-bold">
+                      {creative.pontuacaoCriativo?.toFixed(2) ?? "-"}
+                    </td>
                   </tr>
                 )
               })}

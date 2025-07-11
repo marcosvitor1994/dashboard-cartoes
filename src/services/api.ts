@@ -44,6 +44,17 @@ export const fetchResumoData = async () => {
   }
 }
 
+// NOVA FUNÇÃO para buscar dados off-line
+export const fetchOfflineData = async () => {
+  try {
+    const response = await api.get("/cartao/off-line")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados off-line:", error)
+    throw error
+  }
+}
+
 // NOVAS FUNÇÕES PARA OS CRIATIVOS
 // Função para buscar dados do Meta
 export const fetchCartaoMetaData = async () => {
@@ -85,6 +96,47 @@ export const fetchCartaoLinkedInData = async () => {
     return response.data
   } catch (error) {
     console.error("Erro ao buscar dados do LinkedIn:", error)
+    throw error
+  }
+}
+
+// NOVAS FUNÇÕES PARA PONTUAÇÃO
+export const fetchPontuacaoTikTokData = async () => {
+  try {
+    const response = await api.get("/cartao/pontuacao/tiktok")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados de pontuação do TikTok:", error)
+    throw error
+  }
+}
+
+export const fetchPontuacaoMetaData = async () => {
+  try {
+    const response = await api.get("/cartao/pontuacao/meta")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados de pontuação do Meta:", error)
+    throw error
+  }
+}
+
+export const fetchPontuacaoPinterestData = async () => {
+  try {
+    const response = await api.get("/cartao/pontuacao/pinterest")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados de pontuação do Pinterest:", error)
+    throw error
+  }
+}
+
+export const fetchPontuacaoLinkedInData = async () => {
+  try {
+    const response = await api.get("/cartao/pontuacao/linkedin")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados de pontuação do LinkedIn:", error)
     throw error
   }
 }
@@ -132,6 +184,32 @@ export const useConsolidadoData = () => {
     try {
       setLoading(true)
       const result = await fetchConsolidadoData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+// NOVO Hook personalizado para usar os dados off-line
+export const useOfflineData = () => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchOfflineData()
       setData(result)
       setError(null)
     } catch (err) {
@@ -296,6 +374,37 @@ export const useCartaoLinkedInData = () => {
 
   return { data, loading, error, refetch: loadData }
 }
+
+// NOVOS HOOKS PARA PONTUAÇÃO
+const usePontuacaoData = (fetcher: () => Promise<any>) => {
+  const [data, setData] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetcher()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [fetcher])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}
+
+export const usePontuacaoTikTokData = () => usePontuacaoData(fetchPontuacaoTikTokData)
+export const usePontuacaoMetaData = () => usePontuacaoData(fetchPontuacaoMetaData)
+export const usePontuacaoPinterestData = () => usePontuacaoData(fetchPontuacaoPinterestData)
+export const usePontuacaoLinkedInData = () => usePontuacaoData(fetchPontuacaoLinkedInData)
 
 // Hook personalizado para usar os dados da API CCBB (manter compatibilidade)
 export const useCCBBData = () => {
