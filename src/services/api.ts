@@ -664,3 +664,40 @@ export const usePinterestImageData = () => {
 
   return { data, loading, error, refetch: loadData }
 }
+
+// Função para buscar dados de benchmark
+export const fetchBenchmarkData = async () => {
+  try {
+    const response = await api.get("/cartao/benchmark")
+    return response.data
+  } catch (error) {
+    console.error("Erro ao buscar dados de benchmark:", error)
+    throw error
+  }
+}
+
+// Hook personalizado para usar os dados de benchmark
+export const useBenchmarkData = () => {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await fetchBenchmarkData()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err as Error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  return { data, loading, error, refetch: loadData }
+}

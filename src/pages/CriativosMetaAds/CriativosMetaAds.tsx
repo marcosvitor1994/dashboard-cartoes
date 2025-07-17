@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Share2, Calendar, Filter, ArrowUpDown } from "lucide-react"
 import { useCartaoMetaData, usePontuacaoMetaData } from "../../services/api"
 import Loading from "../../components/Loading/Loading"
+import CreativeModalMeta from "./CreativeModalMeta"
 
 interface CreativeData {
   date: string
@@ -32,6 +33,7 @@ interface CreativeData {
   pontuacaoCriativo?: number
   tipoCompra?: string
   videoEstaticoAudio?: string
+  linkToPromotedInstagramPost?: string
 }
 
 const CriativosMetaAds: React.FC = () => {
@@ -45,6 +47,7 @@ const CriativosMetaAds: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
+  const [selectedCreative, setSelectedCreative] = useState<CreativeData | null>(null)
 
   // New filters state
   const [selectedTipoCompra, setSelectedTipoCompra] = useState<string>("")
@@ -121,6 +124,7 @@ const CriativosMetaAds: React.FC = () => {
             pontuacaoCriativo: scoreData?.pontuacao,
             tipoCompra: scoreData?.tipoCompra,
             videoEstaticoAudio: scoreData?.videoEstaticoAudio,
+            linkToPromotedInstagramPost: row[headers.indexOf("Link to promoted Instagram post")] || "",
           } as CreativeData
         })
         .filter((item: CreativeData) => item.date && item.impressions > 0)
@@ -276,6 +280,14 @@ const CriativosMetaAds: React.FC = () => {
   const truncateText = (text: string, maxLength: number): string => {
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength) + "..."
+  }
+
+  const openCreativeModal = (creative: CreativeData) => {
+    setSelectedCreative(creative)
+  }
+
+  const closeCreativeModal = () => {
+    setSelectedCreative(null)
   }
 
   if (loading || pontuacaoLoading) {
@@ -472,7 +484,10 @@ const CriativosMetaAds: React.FC = () => {
                 return (
                   <tr key={index} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
                     <td className="py-3 px-4 w-[5rem]">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <div
+                        className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => openCreativeModal(creative)}
+                      >
                         {creative.adCreativeImageUrl || creative.adCreativeThumbnailUrl ? (
                           <img
                             src={creative.adCreativeImageUrl || creative.adCreativeThumbnailUrl || "/placeholder.svg"}
@@ -557,6 +572,9 @@ const CriativosMetaAds: React.FC = () => {
           </div>
         </div>
       </div>
+      {selectedCreative && (
+        <CreativeModalMeta creative={selectedCreative} isOpen={!!selectedCreative} onClose={closeCreativeModal} />
+      )}
     </div>
   )
 }
